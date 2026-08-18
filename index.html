@@ -164,6 +164,24 @@
   .save-banner.show{display:block;}
 
   small.hint{display:block;color:var(--gray-400);font-size:11px;margin-top:5px;}
+
+  .material-item{
+    display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--gray-100);
+    border-radius:10px;margin-bottom:8px;text-decoration:none;color:var(--gray-800);background:var(--gray-50);
+    transition:.12s;
+  }
+  a.material-item:hover{background:var(--brand-light);border-color:#cdeae1;}
+  .material-item .mat-icon{font-size:16px;flex-shrink:0;}
+  .material-item .mat-name{flex:1;font-size:13px;font-weight:600;word-break:break-all;}
+  .material-item .mat-size{font-size:11px;color:var(--gray-400);flex-shrink:0;}
+  .material-item .mat-dl{font-size:14px;flex-shrink:0;}
+  .material-item.admin{background:#fff;padding-right:8px;}
+  .material-item .mat-link{display:flex;align-items:center;gap:10px;flex:1;text-decoration:none;color:var(--gray-800);min-width:0;}
+  .mat-del{
+    border:none;background:#fdeceb;color:var(--red);width:26px;height:26px;border-radius:50%;
+    flex-shrink:0;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;
+  }
+  .mat-del:hover{background:#fbdcd9;}
 </style>
 </head>
 <body>
@@ -193,6 +211,11 @@
       <div class="info-row"><b>일시</b><span id="infoDate">불러오는 중...</span></div>
       <div class="info-row"><b>장소</b><span id="infoLocation">불러오는 중...</span></div>
       <div class="info-row"><b>안건</b><span id="infoAgenda">불러오는 중...</span></div>
+    </div>
+
+    <div class="card" id="materialsCard" style="display:none;">
+      <div class="section-title">📎 회의 자료</div>
+      <div id="materialsList"></div>
     </div>
 
     <div class="stats-title">실시간 참석 집계 현황</div>
@@ -317,6 +340,14 @@
       </div>
 
       <div class="card">
+        <div class="section-title">📎 회의 자료 첨부</div>
+        <small class="hint" style="margin-top:0;">PDF, 한글/워드, 엑셀, 이미지 등을 첨부하면 참석 신청 화면에서 회원들이 바로 다운로드할 수 있어요. (파일당 최대 20MB)</small>
+        <input type="file" id="materialFileInput" multiple style="width:100%;padding:10px;border:1px solid var(--gray-200);border-radius:10px;background:var(--gray-50);margin-top:12px;font-size:13px;" />
+        <button class="submit-btn" id="uploadMaterialBtn">📎 자료 업로드</button>
+        <div id="adminMaterialsList" style="margin-top:14px;"></div>
+      </div>
+
+      <div class="card">
         <div class="admin-topbar">
           <div class="section-title" style="margin-bottom:0;">👥 참석자 명단 (<span id="adminEventLabel"></span>)</div>
         </div>
@@ -355,9 +386,12 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getFirestore, doc, getDoc, setDoc, collection, addDoc,
+  getFirestore, doc, getDoc, setDoc, collection, addDoc, deleteDoc,
   onSnapshot, serverTimestamp, query, orderBy
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 /* ============================================================
    1) Firebase 설정값 — 반드시 본인의 Firebase 프로젝트 값으로 교체하세요.
@@ -383,6 +417,7 @@ document.getElementById("orgBadge").textContent = ORG_NAME;
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 /* ---------------- 유틸 ---------------- */
 function fmtTime(ts){
@@ -409,6 +444,12 @@ function fmtPrintedAt(d = new Date()){
 /* 엑셀 서명부 하단 날짜 표기 (예: 2026년 8월 4일) */
 function fmtDateOnly(d = new Date()){
   return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`;
+}
+function fmtFileSize(bytes){
+  bytes = bytes || 0;
+  if(bytes < 1024) return `${bytes}B`;
+  if(bytes < 1024*1024) return `${(bytes/1024).toFixed(1)}KB`;
+  return `${(bytes/1024/1024).toFixed(1)}MB`;
 }
 function showToast(msg){
   const t = document.getElementById("toast");
@@ -526,15 +567,44 @@ function listenEventResponses(eventId, onData){
   }, (err)=>console.error(err));
 }
 
+function listenMaterials(eventId, onData){
+  const ref = collection(db, "events", eventId, "materials");
+  const q = query(ref, orderBy("uploadedAt","desc"));
+  return onSnapshot(q, (snap)=>{
+    const rows = [];
+    snap.forEach(d=>rows.push({id:d.id, ...d.data()}));
+    onData(rows);
+  }, (err)=>console.error(err));
+}
+
+function renderPublicMaterials(rows){
+  const card = document.getElementById("materialsCard");
+  const list = document.getElementById("materialsList");
+  if(!rows || rows.length === 0){
+    card.style.display = "none";
+    return;
+  }
+  card.style.display = "";
+  list.innerHTML = rows.map(r=>`
+    <a class="material-item" href="${r.url}" target="_blank" rel="noopener">
+      <span class="mat-icon">📄</span>
+      <span class="mat-name">${escapeHtml(r.fileName || "파일")}</span>
+      <span class="mat-size">${fmtFileSize(r.size)}</span>
+      <span class="mat-dl">⬇️</span>
+    </a>`).join("");
+}
+
 /* ---------------- 공개 화면: 현재 활성 행사 구독 ---------------- */
 let activeEventId = null;
 let unsubActiveInfo = null;
 let unsubActiveResponses = null;
+let unsubActiveMaterials = null;
 
 listenActiveEventId((id)=>{
   activeEventId = id;
   if(unsubActiveInfo) unsubActiveInfo();
   if(unsubActiveResponses) unsubActiveResponses();
+  if(unsubActiveMaterials) unsubActiveMaterials();
 
   if(!id){
     document.title = "행사 참석 신청";
@@ -544,6 +614,7 @@ listenActiveEventId((id)=>{
     document.getElementById("infoAgenda").textContent = "-";
     renderPublicStats([]);
     renderPublicList([]);
+    renderPublicMaterials([]);
     submitBtn.disabled = true;
     return;
   }
@@ -560,6 +631,9 @@ listenActiveEventId((id)=>{
   unsubActiveResponses = listenEventResponses(id, (rows)=>{
     renderPublicStats(rows);
     renderPublicList(rows);
+  });
+  unsubActiveMaterials = listenMaterials(id, (rows)=>{
+    renderPublicMaterials(rows);
   });
 });
 
@@ -655,8 +729,10 @@ submitBtn.addEventListener("click", async ()=>{
 let adminEventId = null;
 let unsubAdminInfo = null;
 let unsubAdminResponses = null;
+let unsubAdminMaterials = null;
 let unsubEventsList = null;
 let adminRowsCache = [];
+let adminMaterialsCache = [];
 let adminEventTitleCache = "";
 let adminEventInfoCache = null;
 let infoDirty = false;
@@ -685,6 +761,7 @@ document.getElementById("adminLogoutBtn").addEventListener("click", ()=>{
   document.getElementById("adminPw").value = "";
   if(unsubAdminInfo) unsubAdminInfo();
   if(unsubAdminResponses) unsubAdminResponses();
+  if(unsubAdminMaterials) unsubAdminMaterials();
   if(unsubEventsList) unsubEventsList();
 });
 
@@ -712,6 +789,7 @@ function initAdminPanel(){
       updateActiveIndicator();
       renderAdminStats([]);
       renderAdminTable([]);
+      renderAdminMaterials([]);
       document.getElementById("adminEventLabel").textContent = "";
       document.getElementById("editTitle").value = "";
       document.getElementById("editDate").value = "";
@@ -770,6 +848,7 @@ function updateActiveIndicator(){
 function subscribeAdminEvent(eventId){
   if(unsubAdminInfo) unsubAdminInfo();
   if(unsubAdminResponses) unsubAdminResponses();
+  if(unsubAdminMaterials) unsubAdminMaterials();
   adminEventId = eventId;
   infoDirty = false;
   document.getElementById("saveBanner").classList.remove("show");
@@ -792,6 +871,28 @@ function subscribeAdminEvent(eventId){
     renderAdminStats(rows);
     renderAdminTable(rows);
   });
+
+  unsubAdminMaterials = listenMaterials(eventId, (rows)=>{
+    adminMaterialsCache = rows;
+    renderAdminMaterials(rows);
+  });
+}
+
+function renderAdminMaterials(rows){
+  const list = document.getElementById("adminMaterialsList");
+  if(!rows || rows.length === 0){
+    list.innerHTML = `<div class="empty" style="padding:10px 0;">첨부된 자료가 없습니다</div>`;
+    return;
+  }
+  list.innerHTML = rows.map(r=>`
+    <div class="material-item admin">
+      <a class="mat-link" href="${r.url}" target="_blank" rel="noopener">
+        <span class="mat-icon">📄</span>
+        <span class="mat-name">${escapeHtml(r.fileName || "파일")}</span>
+        <span class="mat-size">${fmtFileSize(r.size)}</span>
+      </a>
+      <button class="mat-del" data-id="${r.id}" data-path="${escapeHtml(r.storagePath || "")}" data-name="${escapeHtml(r.fileName || "파일")}">✕</button>
+    </div>`).join("");
 }
 
 function renderAdminStats(rows){
@@ -901,6 +1002,91 @@ document.getElementById("setActiveBtn").addEventListener("click", async ()=>{
   }catch(e){
     console.error(e);
     showToast("전환 실패. Firebase 설정 및 보안 규칙을 확인해주세요.");
+  }
+});
+
+/* 회의 자료 업로드 */
+const MAX_MATERIAL_SIZE = 20 * 1024 * 1024; // 20MB
+
+document.getElementById("uploadMaterialBtn").addEventListener("click", async ()=>{
+  if(!adminEventId){
+    showToast("먼저 행사를 선택하거나 새로 만들어주세요");
+    return;
+  }
+  const input = document.getElementById("materialFileInput");
+  const files = [...input.files];
+  if(files.length === 0){
+    showToast("첨부할 파일을 선택해주세요");
+    return;
+  }
+
+  const btn = document.getElementById("uploadMaterialBtn");
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  let uploaded = 0, skipped = 0;
+
+  try{
+    for(const file of files){
+      if(file.size > MAX_MATERIAL_SIZE){
+        skipped++;
+        continue;
+      }
+      btn.textContent = `업로드 중... (${uploaded+1}/${files.length})`;
+      const path = `events/${adminEventId}/materials/${Date.now()}_${file.name}`;
+      const sRef = storageRef(storage, path);
+      await uploadBytes(sRef, file);
+      const url = await getDownloadURL(sRef);
+      await addDoc(collection(db, "events", adminEventId, "materials"), {
+        fileName: file.name,
+        url,
+        storagePath: path,
+        size: file.size,
+        contentType: file.type || "application/octet-stream",
+        uploadedAt: serverTimestamp()
+      });
+      uploaded++;
+    }
+    input.value = "";
+    if(skipped > 0){
+      showToast(`${uploaded}개 업로드 완료, ${skipped}개는 20MB를 초과해 건너뛰었습니다`);
+    }else{
+      showToast("자료가 업로드되었습니다 ✅");
+    }
+  }catch(e){
+    console.error(e);
+    showToast("업로드 실패. Storage 설정 및 보안 규칙을 확인해주세요.");
+  }finally{
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+});
+
+/* 회의 자료 삭제 (이벤트 위임) */
+document.getElementById("adminMaterialsList").addEventListener("click", async (e)=>{
+  const btn = e.target.closest(".mat-del");
+  if(!btn) return;
+  const id = btn.dataset.id;
+  const path = btn.dataset.path;
+  const name = btn.dataset.name;
+  if(!adminEventId || !id) return;
+
+  if(!window.confirm(`"${name}" 파일을 삭제할까요?`)) return;
+
+  btn.disabled = true;
+  try{
+    if(path){
+      try{
+        await deleteObject(storageRef(storage, path));
+      }catch(storageErr){
+        console.warn("Storage 파일 삭제 실패(이미 삭제됐거나 존재하지 않을 수 있음):", storageErr);
+      }
+    }
+    await deleteDoc(doc(db, "events", adminEventId, "materials", id));
+    showToast("자료가 삭제되었습니다");
+  }catch(e){
+    console.error(e);
+    showToast("삭제 실패. Firebase 설정 및 보안 규칙을 확인해주세요.");
+    btn.disabled = false;
   }
 });
 
