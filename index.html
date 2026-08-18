@@ -60,10 +60,10 @@
   .info-card{
     background:var(--brand-light);border:1px solid #cdeae1;
   }
-  .info-card h3{margin:0 0 10px;font-size:13.5px;color:var(--brand-dark);display:flex;align-items:center;gap:6px;}
-  .info-row{display:flex;gap:8px;font-size:15px;color:var(--gray-800);margin-bottom:10px;line-height:1.5;}
+  .info-card h3{margin:0 0 10px;font-size:17px;color:var(--brand-dark);display:flex;align-items:center;gap:6px;}
+  .info-row{display:flex;gap:5px;font-size:14px;color:var(--gray-800);margin-bottom:10px;line-height:1.5;}
   .info-row:last-child{margin-bottom:0;}
-  .info-row b{min-width:66px;color:var(--brand-dark);flex-shrink:0;font-weight:800;}
+  .info-row b{white-space:nowrap;color:var(--brand-dark);flex-shrink:0;font-weight:800;}
   .info-row span{white-space:pre-line;font-weight:700;color:var(--gray-800);}
 
   .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:16px;}
@@ -233,9 +233,9 @@
 
     <div class="card info-card">
       <h3>🗓️ 행사 안내</h3>
-      <div class="info-row"><b>1. 일시</b><span id="infoDate">불러오는 중...</span></div>
-      <div class="info-row"><b>2. 장소</b><span id="infoLocation">불러오는 중...</span></div>
-      <div class="info-row"><b>3. 안건</b><span id="infoAgenda">불러오는 중...</span></div>
+      <div class="info-row"><b>1. 일시 :</b><span id="infoDate">불러오는 중...</span></div>
+      <div class="info-row"><b>2. 장소 :</b><span id="infoLocation">불러오는 중...</span></div>
+      <div class="info-row"><b>3. 안건 :</b><span id="infoAgenda">불러오는 중...</span></div>
     </div>
 
     <div class="card" id="materialsCard" style="display:none;">
