@@ -61,9 +61,10 @@
     background:var(--brand-light);border:1px solid #cdeae1;
   }
   .info-card h3{margin:0 0 10px;font-size:13.5px;color:var(--brand-dark);display:flex;align-items:center;gap:6px;}
-  .info-row{display:flex;gap:8px;font-size:13px;color:var(--gray-800);margin-bottom:6px;line-height:1.5;}
-  .info-row b{min-width:44px;color:var(--brand-dark);flex-shrink:0;}
-  .info-row span{white-space:pre-line;}
+  .info-row{display:flex;gap:8px;font-size:15px;color:var(--gray-800);margin-bottom:10px;line-height:1.5;}
+  .info-row:last-child{margin-bottom:0;}
+  .info-row b{min-width:66px;color:var(--brand-dark);flex-shrink:0;font-weight:800;}
+  .info-row span{white-space:pre-line;font-weight:700;color:var(--gray-800);}
 
   .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:16px;}
   .stat{background:#fff;border-radius:12px;box-shadow:var(--shadow);padding:14px 6px;text-align:center;}
@@ -182,6 +183,30 @@
     flex-shrink:0;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;
   }
   .mat-del:hover{background:#fbdcd9;}
+
+  .row-manage{display:flex;gap:6px;}
+  .icon-btn{
+    border:none;width:26px;height:26px;border-radius:8px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;
+  }
+  .icon-btn.edit{background:var(--brand-light);color:var(--brand-dark);}
+  .icon-btn.edit:hover{background:#cdeae1;}
+  .icon-btn.del{background:#fdeceb;color:var(--red);}
+  .icon-btn.del:hover{background:#fbdcd9;}
+
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(15,35,30,0.55);z-index:100;
+    display:flex;align-items:flex-end;justify-content:center;
+  }
+  .modal-card{
+    background:#fff;border-radius:18px 18px 0 0;padding:22px 18px 26px;
+    width:100%;max-width:640px;max-height:88vh;overflow-y:auto;
+    box-shadow:0 -8px 30px rgba(0,0,0,0.2);
+  }
+  @media (min-width:680px){
+    .modal-overlay{align-items:center;}
+    .modal-card{border-radius:18px;}
+  }
 </style>
 </head>
 <body>
@@ -208,9 +233,9 @@
 
     <div class="card info-card">
       <h3>🗓️ 행사 안내</h3>
-      <div class="info-row"><b>일시</b><span id="infoDate">불러오는 중...</span></div>
-      <div class="info-row"><b>장소</b><span id="infoLocation">불러오는 중...</span></div>
-      <div class="info-row"><b>안건</b><span id="infoAgenda">불러오는 중...</span></div>
+      <div class="info-row"><b>1. 일시</b><span id="infoDate">불러오는 중...</span></div>
+      <div class="info-row"><b>2. 장소</b><span id="infoLocation">불러오는 중...</span></div>
+      <div class="info-row"><b>3. 안건</b><span id="infoAgenda">불러오는 중...</span></div>
     </div>
 
     <div class="card" id="materialsCard" style="display:none;">
@@ -360,10 +385,10 @@
         <div class="table-scroll">
           <table class="admin-table" id="adminTable">
             <thead>
-              <tr><th>#</th><th>성함</th><th>직책</th><th>참석</th><th>식사</th><th>비고</th><th>제출시각</th></tr>
+              <tr><th>#</th><th>성함</th><th>직책</th><th>참석</th><th>식사</th><th>비고</th><th>제출시각</th><th>관리</th></tr>
             </thead>
             <tbody id="adminTableBody">
-              <tr><td colspan="7" style="text-align:center;color:#9aa8a4;padding:16px;">데이터 없음</td></tr>
+              <tr><td colspan="8" style="text-align:center;color:#9aa8a4;padding:16px;">데이터 없음</td></tr>
             </tbody>
           </table>
         </div>
@@ -378,6 +403,45 @@
 
 </div>
 
+<!-- 참석 정보 수정 모달 (관리자 전용) -->
+<div class="modal-overlay" id="editResponseModal" style="display:none;">
+  <div class="modal-card">
+    <div class="section-title">✏️ 참석 정보 수정</div>
+
+    <label>성함 *</label>
+    <input type="text" id="erName" placeholder="성함을 입력하세요" maxlength="20" />
+
+    <label>직책 / 소속 *</label>
+    <div class="choice-row c4" id="erRoleRow">
+      <button type="button" class="choice-btn" data-val="회원">👤 회원</button>
+      <button type="button" class="choice-btn" data-val="이사">👤 이사</button>
+      <button type="button" class="choice-btn" data-val="감사">👤 감사</button>
+      <button type="button" class="choice-btn" data-val="가족센터">🏠 가족센터</button>
+    </div>
+
+    <label>참석 여부 *</label>
+    <div class="choice-row c3" id="erAttendRow">
+      <button type="button" class="choice-btn" data-val="참석">✅ 참석</button>
+      <button type="button" class="choice-btn" data-val="불참">✕ 불참</button>
+      <button type="button" class="choice-btn" data-val="위임">🗳️ 의결 위임</button>
+    </div>
+
+    <label>식사 여부</label>
+    <div class="choice-row c2" id="erMealRow">
+      <button type="button" class="choice-btn" data-val="참석">🍴 식사 참석</button>
+      <button type="button" class="choice-btn" data-val="안함">🚫 식사 안함</button>
+    </div>
+
+    <label>비고 및 전달 사항</label>
+    <textarea id="erNote" placeholder="메모를 입력해주세요"></textarea>
+
+    <div class="row-actions" style="margin-top:18px;">
+      <button class="btn-secondary" id="erCancelBtn">취소</button>
+      <button class="submit-btn" id="erSaveBtn" style="margin-top:0;flex:1.4;">💾 저장</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- 엑셀(xlsx) 파일 생성을 위한 라이브러리 (브라우저에서 서식이 적용된 .xlsx를 직접 만들어줍니다) -->
@@ -386,7 +450,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getFirestore, doc, getDoc, setDoc, collection, addDoc, deleteDoc,
+  getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, deleteDoc,
   onSnapshot, serverTimestamp, query, orderBy
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
@@ -482,18 +546,18 @@ tabAdminBtn.addEventListener("click", ()=>{
 });
 
 /* ---------------- 신청 폼 선택 버튼 ---------------- */
-function wireChoiceRow(rowId){
+function wireChoiceRow(rowId, opts = {}){
   const row = document.getElementById(rowId);
   row.addEventListener("click", (e)=>{
     const btn = e.target.closest(".choice-btn");
     if(!btn) return;
     [...row.children].forEach(c=>c.classList.remove("selected","warn","neutral"));
     btn.classList.add("selected");
-    if(rowId === "attendRow"){
+    if(opts.isAttendRow){
       if(btn.dataset.val === "불참") btn.classList.add("warn");
       if(btn.dataset.val === "위임") btn.classList.add("neutral");
       // 불참/위임 선택 시 식사 여부는 자동 "안함"으로, 참석 재선택 시 식사행 다시 노출
-      const mealRow = document.getElementById("mealRow");
+      const mealRow = document.getElementById(opts.mealRowId);
       if(btn.dataset.val !== "참석"){
         mealRow.style.opacity = "0.45";
         mealRow.style.pointerEvents = "none";
@@ -506,12 +570,38 @@ function wireChoiceRow(rowId){
     }
   });
 }
-["roleRow","attendRow","mealRow"].forEach(wireChoiceRow);
+["roleRow","attendRow","mealRow"].forEach(id=>wireChoiceRow(id, { isAttendRow: id === "attendRow", mealRowId: "mealRow" }));
+["erRoleRow","erAttendRow","erMealRow"].forEach(id=>wireChoiceRow(id, { isAttendRow: id === "erAttendRow", mealRowId: "erMealRow" }));
 
 function getSelected(rowId){
   const row = document.getElementById(rowId);
   const sel = row.querySelector(".choice-btn.selected");
   return sel ? sel.dataset.val : null;
+}
+
+/* 특정 값으로 선택 버튼 상태를 맞춤 (수정 모달에 기존 값 채울 때 사용) */
+function selectChoiceByValue(rowId, value){
+  const row = document.getElementById(rowId);
+  [...row.children].forEach(c=>{
+    c.classList.remove("selected","warn","neutral");
+    if(c.dataset.val === value){
+      c.classList.add("selected");
+      if(rowId === "erAttendRow"){
+        if(value === "불참") c.classList.add("warn");
+        if(value === "위임") c.classList.add("neutral");
+      }
+    }
+  });
+  const mealRow = document.getElementById("erMealRow");
+  if(rowId === "erAttendRow" && mealRow){
+    if(value !== "참석"){
+      mealRow.style.opacity = "0.45";
+      mealRow.style.pointerEvents = "none";
+    }else{
+      mealRow.style.opacity = "1";
+      mealRow.style.pointerEvents = "auto";
+    }
+  }
 }
 
 /* 다음 신청자를 위해 선택 버튼을 기본값으로 초기화 (회원 / 참석 / 식사 참석) */
@@ -907,7 +997,7 @@ function renderAdminStats(rows){
 function renderAdminTable(rows){
   const body = document.getElementById("adminTableBody");
   if(rows.length === 0){
-    body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#9aa8a4;padding:16px;">데이터 없음</td></tr>`;
+    body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#9aa8a4;padding:16px;">데이터 없음</td></tr>`;
     return;
   }
   body.innerHTML = rows.map((r,i)=>`
@@ -919,8 +1009,96 @@ function renderAdminTable(rows){
       <td>${escapeHtml(r.meal||"")}</td>
       <td>${escapeHtml(r.note||"")}</td>
       <td>${fmtTime(r.submittedAt)}</td>
+      <td>
+        <div class="row-manage">
+          <button type="button" class="icon-btn edit" data-id="${r.id}" title="수정">✏️</button>
+          <button type="button" class="icon-btn del" data-id="${r.id}" data-name="${escapeHtml(r.name||"")}" title="삭제">🗑️</button>
+        </div>
+      </td>
     </tr>`).join("");
 }
+
+/* ============================================================
+   참석자 정보 수정 / 삭제 (관리자 전용)
+   ============================================================ */
+let editingResponseId = null;
+const editResponseModal = document.getElementById("editResponseModal");
+
+function openEditModal(row){
+  editingResponseId = row.id;
+  document.getElementById("erName").value = row.name || "";
+  document.getElementById("erNote").value = row.note || "";
+  selectChoiceByValue("erRoleRow", row.role || "회원");
+  selectChoiceByValue("erAttendRow", row.attendance || "참석");
+  selectChoiceByValue("erMealRow", row.meal || "참석");
+  editResponseModal.style.display = "flex";
+}
+
+function closeEditModal(){
+  editResponseModal.style.display = "none";
+  editingResponseId = null;
+}
+
+document.getElementById("erCancelBtn").addEventListener("click", closeEditModal);
+editResponseModal.addEventListener("click", (e)=>{
+  if(e.target === editResponseModal) closeEditModal(); // 바깥 영역 클릭 시 닫기
+});
+
+document.getElementById("erSaveBtn").addEventListener("click", async ()=>{
+  if(!editingResponseId || !adminEventId) return;
+  const name = document.getElementById("erName").value.trim();
+  const role = getSelected("erRoleRow");
+  const attendance = getSelected("erAttendRow");
+  const meal = attendance === "참석" ? getSelected("erMealRow") : "안함";
+  const note = document.getElementById("erNote").value.trim();
+
+  if(!name){
+    showToast("성함을 입력해주세요");
+    return;
+  }
+
+  const btn = document.getElementById("erSaveBtn");
+  btn.disabled = true;
+  try{
+    await updateDoc(doc(db, "events", adminEventId, "responses", editingResponseId), {
+      name, role, attendance, meal, note
+    });
+    showToast("참석 정보가 수정되었습니다 ✅");
+    closeEditModal();
+  }catch(e){
+    console.error(e);
+    showToast("수정 실패. Firebase 설정 및 보안 규칙을 확인해주세요.");
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+/* 참석 명단 표 안의 수정/삭제 버튼 (이벤트 위임) */
+document.getElementById("adminTableBody").addEventListener("click", async (e)=>{
+  const editBtn = e.target.closest(".icon-btn.edit");
+  const delBtn = e.target.closest(".icon-btn.del");
+
+  if(editBtn){
+    const row = adminRowsCache.find(r=>r.id === editBtn.dataset.id);
+    if(row) openEditModal(row);
+    return;
+  }
+
+  if(delBtn){
+    if(!adminEventId) return;
+    const name = delBtn.dataset.name || "이 참석자";
+    if(!window.confirm(`"${name}" 신청 내역을 삭제할까요? 되돌릴 수 없습니다.`)) return;
+    delBtn.disabled = true;
+    try{
+      await deleteDoc(doc(db, "events", adminEventId, "responses", delBtn.dataset.id));
+      showToast("삭제되었습니다");
+    }catch(e){
+      console.error(e);
+      showToast("삭제 실패. Firebase 설정 및 보안 규칙을 확인해주세요.");
+      delBtn.disabled = false;
+    }
+  }
+});
 
 /* 새 행사 만들기 */
 document.getElementById("createEventBtn").addEventListener("click", async ()=>{
