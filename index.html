@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>행사 참석 신청</title>
+<style>
+  :root{
+    --brand-dark:#0f5c4d;
+    --brand:#12836b;
+    --brand-light:#e6f5f1;
+    --accent:#0f9d78;
+    --red:#e0503a;
+    --amber:#c98a12;
+    --gray-50:#f7f9f8;
+    --gray-100:#eef1f0;
+    --gray-200:#dfe5e3;
+    --gray-400:#9aa8a4;
+    --gray-600:#5c6b67;
+    --gray-800:#28332f;
+    --radius:14px;
+    --shadow:0 4px 18px rgba(15,92,77,0.08);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    background:linear-gradient(180deg,#0f5c4d 0%, #0f5c4d 160px, var(--gray-50) 160px);
+    color:var(--gray-800);
+    min-height:100vh;
+  }
+  .wrap{max-width:640px;margin:0 auto;padding:24px 16px 60px;}
+  .header{
+    background:linear-gradient(135deg,var(--brand-dark),var(--brand));
+    border-radius:var(--radius);
+    padding:22px 22px 20px;
+    color:#fff;
+    box-shadow:var(--shadow);
+    position:relative;
+    overflow:hidden;
+  }
+  .header .top-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:10px;}
+  .badge{background:rgba(255,255,255,0.18);padding:4px 10px;border-radius:999px;display:inline-flex;align-items:center;gap:5px;}
+  .badge.dot::before{content:"";width:6px;height:6px;border-radius:50%;background:#4ade80;display:inline-block;}
+  .header h1{font-size:20px;margin:2px 0 4px;display:flex;align-items:center;gap:8px;}
+  .header p{margin:0;font-size:12.5px;opacity:0.85;}
+
+  .tabs{display:flex;background:#fff;border-radius:12px;padding:5px;box-shadow:var(--shadow);margin-top:-18px;position:relative;z-index:2;gap:4px;}
+  .tab-btn{
+    flex:1;border:none;background:transparent;padding:12px 8px;border-radius:9px;
+    font-size:14px;font-weight:600;color:var(--gray-600);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:6px;transition:.15s;
+  }
+  .tab-btn.active{background:var(--brand-dark);color:#fff;}
+
+  .card{
+    background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:18px 18px;margin-top:16px;
+  }
+  .info-card{
+    background:var(--brand-light);border:1px solid #cdeae1;
+  }
+  .info-card h3{margin:0 0 10px;font-size:13.5px;color:var(--brand-dark);display:flex;align-items:center;gap:6px;}
+  .info-row{display:flex;gap:8px;font-size:13px;color:var(--gray-800);margin-bottom:6px;line-height:1.5;}
+  .info-row b{min-width:44px;color:var(--brand-dark);flex-shrink:0;}
+  .info-row span{white-space:pre-line;}
+
+  .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:16px;}
+  .stat{background:#fff;border-radius:12px;box-shadow:var(--shadow);padding:14px 6px;text-align:center;}
+  .stat .label{font-size:11.5px;color:var(--gray-600);margin-bottom:6px;}
+  .stat .num{font-size:22px;font-weight:800;color:var(--brand-dark);}
+  .stat.meal .num{color:var(--amber);}
+  .stat.absent .num{color:var(--gray-800);}
+  .stats-caption{text-align:center;font-size:11.5px;color:var(--gray-400);margin-top:6px;}
+  .stats-title{text-align:center;font-size:12px;color:var(--gray-600);margin-top:18px;}
+
+  .section-title{display:flex;align-items:center;gap:6px;font-size:14.5px;font-weight:700;color:var(--gray-800);margin-bottom:14px;}
+  label{display:block;font-size:12.5px;font-weight:600;color:var(--gray-800);margin:14px 0 6px;}
+  label:first-of-type{margin-top:0;}
+  input[type=text], input[type=month], textarea, input[type=password], input[type=datetime-local]{
+    width:100%;padding:11px 12px;border:1px solid var(--gray-200);border-radius:10px;
+    font-size:14px;background:var(--gray-50);color:var(--gray-800);font-family:inherit;
+  }
+  textarea{resize:vertical;min-height:70px;}
+  input:focus, textarea:focus{outline:none;border-color:var(--brand);background:#fff;}
+  .choice-row{display:grid;gap:8px;}
+  .choice-row.c4{grid-template-columns:1fr 1fr 1fr 1fr;}
+  .choice-row.c3{grid-template-columns:1fr 1fr 1fr;}
+  .choice-row.c2{grid-template-columns:1fr 1fr;}
+  .choice-btn{
+    border:1px solid var(--gray-200);background:#fff;border-radius:10px;padding:12px 4px;
+    font-size:13px;font-weight:600;color:var(--gray-600);cursor:pointer;text-align:center;
+    display:flex;flex-direction:column;align-items:center;gap:4px;transition:.12s;
+  }
+  .choice-btn .ic{font-size:15px;}
+  .choice-btn.selected{background:var(--brand-dark);border-color:var(--brand-dark);color:#fff;}
+  .choice-btn.selected.warn{background:var(--red);border-color:var(--red);}
+  .choice-btn.selected.neutral{background:var(--gray-800);border-color:var(--gray-800);}
+
+  .submit-btn{
+    width:100%;padding:14px;margin-top:18px;border:none;border-radius:12px;
+    background:linear-gradient(135deg,var(--brand),var(--brand-dark));color:#fff;
+    font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  .submit-btn:disabled{opacity:0.6;cursor:not-allowed;}
+  .submit-btn:hover:not(:disabled){filter:brightness(1.05);}
+
+  .list-item{
+    display:flex;align-items:center;justify-content:space-between;padding:11px 4px;
+    border-bottom:1px solid var(--gray-100);
+  }
+  .list-item:last-child{border-bottom:none;}
+  .li-left{display:flex;align-items:center;gap:10px;}
+  .li-check{width:24px;height:24px;border-radius:50%;background:var(--brand-light);color:var(--brand-dark);
+    display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+  .li-check.absent{background:#fdeceb;color:var(--red);}
+  .li-name{font-size:13.5px;font-weight:700;}
+  .li-name .role{font-size:11.5px;font-weight:500;color:var(--gray-600);margin-left:4px;}
+  .li-time{font-size:11px;color:var(--gray-400);margin-top:1px;}
+  .li-tag{font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--brand-light);color:var(--brand-dark);}
+  .li-tag.absent{background:#fdeceb;color:var(--red);}
+  .li-tag.proxy{background:#fff4e0;color:var(--amber);}
+  .empty{text-align:center;color:var(--gray-400);font-size:13px;padding:24px 0;}
+
+  .list-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .list-header .cnt{font-size:11.5px;color:var(--gray-400);}
+
+  /* Admin */
+  .lock-box{text-align:center;padding:30px 10px;}
+  .lock-box .ic{font-size:34px;margin-bottom:10px;}
+  .lock-box p{font-size:13px;color:var(--gray-600);margin:4px 0 16px;}
+  .lock-box input{margin-bottom:10px;}
+  .lock-btn{
+    width:100%;padding:12px;border:none;border-radius:10px;background:var(--brand-dark);
+    color:#fff;font-weight:700;font-size:14px;cursor:pointer;
+  }
+  .err{color:var(--red);font-size:12.5px;margin-top:2px;}
+
+  .admin-topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+  .admin-topbar .month-select{display:flex;align-items:center;gap:8px;}
+  .logout-link{font-size:12px;color:var(--gray-400);cursor:pointer;text-decoration:underline;}
+
+  .row-actions{display:flex;gap:8px;margin-top:14px;}
+  .btn-secondary{
+    flex:1;padding:11px;border-radius:10px;border:1px solid var(--gray-200);background:#fff;
+    color:var(--gray-800);font-weight:600;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .btn-secondary:hover{background:var(--gray-50);}
+  .btn-primary-outline{border-color:var(--brand);color:var(--brand-dark);}
+
+  table.admin-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px;}
+  table.admin-table th{text-align:left;color:var(--gray-600);font-weight:600;padding:8px 6px;border-bottom:2px solid var(--gray-100);white-space:nowrap;}
+  table.admin-table td{padding:8px 6px;border-bottom:1px solid var(--gray-100);white-space:nowrap;}
+  .table-scroll{overflow-x:auto;}
+
+  .toast{
+    position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+    background:var(--gray-800);color:#fff;padding:11px 20px;border-radius:999px;
+    font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,0.2);z-index:50;opacity:0;pointer-events:none;transition:.25s;
+  }
+  .toast.show{opacity:1;bottom:34px;}
+
+  .save-banner{background:#fff4e0;color:#8a5b00;font-size:12px;padding:9px 12px;border-radius:10px;margin-bottom:12px;display:none;}
+  .save-banner.show{display:block;}
+
+  small.hint{display:block;color:var(--gray-400);font-size:11px;margin-top:5px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="top-row">
+      <span class="badge" id="orgBadge">(사)너와내행복나눔재단</span>
+      <span class="badge dot" id="syncBadge">연결 확인 중</span>
+    </div>
+    <h1>📋 <span id="eventTitleHeader">행사 참석 신청</span></h1>
+    <p>재단 임원 및 회원 여러분의 소중한 참여를 기다립니다</p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" id="tabApplyBtn">✏️ 참석 신청하기</button>
+    <button class="tab-btn" id="tabAdminBtn">🔒 관리자 모드</button>
+  </div>
+
+  <!-- ================= 참석 신청 화면 ================= -->
+  <div id="applyView">
+
+    <div class="card info-card">
+      <h3>🗓️ 행사 안내</h3>
+      <div class="info-row"><b>일시</b><span id="infoDate">불러오는 중...</span></div>
+      <div class="info-row"><b>장소</b><span id="infoLocation">불러오는 중...</span></div>
+      <div class="info-row"><b>안건</b><span id="infoAgenda">불러오는 중...</span></div>
+    </div>
+
+    <div class="stats-title">실시간 참석 집계 현황</div>
+    <div class="stats">
+      <div class="stat"><div class="label">참석 확정</div><div class="num" id="statAttend">0<span style="font-size:13px">명</span></div></div>
+      <div class="stat meal"><div class="label">식사 예정</div><div class="num" id="statMeal">0<span style="font-size:13px">명</span></div></div>
+      <div class="stat absent"><div class="label">불참 / 위임</div><div class="num" id="statAbsent">0<span style="font-size:13px">명</span></div></div>
+    </div>
+    <div class="stats-caption">총 등록인원: <span id="statTotal">0</span>건</div>
+
+    <div class="card">
+      <div class="section-title">📝 참석 신청서 작성</div>
+
+      <label>성함 *</label>
+      <input type="text" id="fName" placeholder="성함을 입력하세요" maxlength="20" />
+
+      <label>직책 / 소속 *</label>
+      <div class="choice-row c4" id="roleRow">
+        <button type="button" class="choice-btn selected" data-val="회원">👤 회원</button>
+        <button type="button" class="choice-btn" data-val="이사">👤 이사</button>
+        <button type="button" class="choice-btn" data-val="감사">👤 감사</button>
+        <button type="button" class="choice-btn" data-val="가족센터">🏠 가족센터</button>
+      </div>
+
+      <label>참석 여부 *</label>
+      <div class="choice-row c3" id="attendRow">
+        <button type="button" class="choice-btn selected" data-val="참석">✅ 참석</button>
+        <button type="button" class="choice-btn" data-val="불참">✕ 불참</button>
+        <button type="button" class="choice-btn" data-val="위임">🗳️ 의결 위임</button>
+      </div>
+
+      <label>회의 후 식사 모임 참석 여부</label>
+      <div class="choice-row c2" id="mealRow">
+        <button type="button" class="choice-btn selected" data-val="참석">🍴 식사 참석</button>
+        <button type="button" class="choice-btn" data-val="안함">🚫 식사 안함</button>
+      </div>
+
+      <label>비고 및 전달 사항 (건의사항, 메모 등)</label>
+      <textarea id="fNote" placeholder="전달하실 의견이나 메모를 입력해주세요 (관리자만 확인 가능)"></textarea>
+
+      <button class="submit-btn" id="submitBtn">참석 신청서 제출 ➤</button>
+    </div>
+
+    <div class="card">
+      <div class="list-header">
+        <div class="section-title" style="margin-bottom:0;">📋 실시간 신청 현황 명단</div>
+        <span class="cnt">최근 제출순</span>
+      </div>
+      <div id="publicList"><div class="empty">아직 신청 내역이 없습니다</div></div>
+    </div>
+
+  </div>
+
+  <!-- ================= 관리자 화면 ================= -->
+  <div id="adminView" style="display:none;">
+
+    <div class="card" id="adminLockCard">
+      <div class="lock-box">
+        <div class="ic">🔒</div>
+        <div style="font-weight:700;font-size:15px;">관리자 인증</div>
+        <p>회의 정보 수정 및 명단 확인을 위해<br/>비밀번호를 입력해주세요</p>
+        <input type="password" id="adminPw" placeholder="관리자 비밀번호" />
+        <div class="err" id="adminErr" style="display:none;">비밀번호가 올바르지 않습니다</div>
+        <button class="lock-btn" id="adminLoginBtn" style="margin-top:6px;">확인</button>
+      </div>
+    </div>
+
+    <div id="adminPanel" style="display:none;">
+
+      <div class="card">
+        <div class="admin-topbar">
+          <div class="section-title" style="margin-bottom:0;">🆕 새 행사 만들기</div>
+          <span class="logout-link" id="adminLogoutBtn">로그아웃</span>
+        </div>
+        <small class="hint" style="margin-top:0;">이사회, 정기총회, 번개모임, 장학금 전달식 등 새로운 행사를 시작할 때 사용하세요. 만들면 즉시 참석 신청 화면이 이 행사로 전환됩니다.</small>
+
+        <label>행사 제목 *</label>
+        <input type="text" id="newTitle" placeholder="예: 2026년 정기총회 / 2월 이사회 / 장학금 전달식" />
+
+        <label>일시</label>
+        <input type="text" id="newDate" placeholder="예: 2026년 9월 12일(토) 14:00" />
+
+        <label>장소</label>
+        <input type="text" id="newLocation" placeholder="예: 홍천군가족센터 3층 대강당" />
+
+        <label>안건 / 안내사항</label>
+        <textarea id="newAgenda" placeholder="예: 예산안 심의, 임원 선출" style="min-height:70px;"></textarea>
+
+        <button class="submit-btn" id="createEventBtn">🚀 새 행사로 시작하기</button>
+      </div>
+
+      <div class="card">
+        <div class="section-title">🗂️ 관리/조회할 행사 선택</div>
+        <select id="eventSelect" style="width:100%;padding:11px 12px;border:1px solid var(--gray-200);border-radius:10px;font-size:14px;background:var(--gray-50);color:var(--gray-800);font-family:inherit;">
+          <option value="">행사를 만들면 여기에 표시됩니다</option>
+        </select>
+        <small class="hint" id="activeIndicator"></small>
+      </div>
+
+      <div class="card">
+        <div class="section-title">✏️ 선택한 행사 정보 수정</div>
+        <div class="save-banner" id="saveBanner">저장되지 않은 변경사항이 있습니다</div>
+
+        <label>행사 제목 *</label>
+        <input type="text" id="editTitle" placeholder="행사 제목" />
+
+        <label>일시</label>
+        <input type="text" id="editDate" placeholder="예: 매월 넷째주 수요일 (18시 30분)" />
+
+        <label>장소</label>
+        <input type="text" id="editLocation" placeholder="예: 홍천군가족센터 3층 대강당" />
+
+        <label>안건 / 안내사항</label>
+        <textarea id="editAgenda" placeholder="예: 안건논의 및 재무보고, 회원 동향" style="min-height:90px;"></textarea>
+
+        <div class="row-actions" style="margin-top:18px;">
+          <button class="submit-btn" id="saveInfoBtn" style="margin-top:0;">💾 행사 정보 저장</button>
+        </div>
+        <div class="row-actions">
+          <button class="btn-secondary btn-primary-outline" id="setActiveBtn">📌 이 행사를 참석 신청 화면에 표시하기</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="admin-topbar">
+          <div class="section-title" style="margin-bottom:0;">👥 참석자 명단 (<span id="adminEventLabel"></span>)</div>
+        </div>
+        <div class="stats" style="margin-top:10px;">
+          <div class="stat"><div class="label">참석</div><div class="num" id="adminStatAttend">0</div></div>
+          <div class="stat meal"><div class="label">식사</div><div class="num" id="adminStatMeal">0</div></div>
+          <div class="stat absent"><div class="label">불참/위임</div><div class="num" id="adminStatAbsent">0</div></div>
+        </div>
+
+        <div class="table-scroll">
+          <table class="admin-table" id="adminTable">
+            <thead>
+              <tr><th>#</th><th>성함</th><th>직책</th><th>참석</th><th>식사</th><th>비고</th><th>제출시각</th></tr>
+            </thead>
+            <tbody id="adminTableBody">
+              <tr><td colspan="7" style="text-align:center;color:#9aa8a4;padding:16px;">데이터 없음</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="row-actions">
+          <button class="btn-secondary btn-primary-outline" id="downloadExcelBtn">⬇️ 참석명단 엑셀(xlsx) 다운로드</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- 엑셀(xlsx) 파일 생성을 위한 라이브러리 (브라우저에서 서식이 적용된 .xlsx를 직접 만들어줍니다) -->
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, doc, getDoc, setDoc, collection, addDoc,
+  onSnapshot, serverTimestamp, query, orderBy
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ============================================================
+   1) Firebase 설정값 — 반드시 본인의 Firebase 프로젝트 값으로 교체하세요.
+      (Firebase 콘솔 > 프로젝트 설정 > 일반 > 내 앱 > SDK 설정 및 구성)
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyAdZJyXR5rFSuNut99eyaUSYzhx-YOcF8E",
+  authDomain: "monthly-meeting-app.firebaseapp.com",
+  projectId: "monthly-meeting-app",
+  storageBucket: "monthly-meeting-app.firebasestorage.app",
+  messagingSenderId: "771664351867",
+  appId: "1:771664351867:web:e936dd474eef26b6f208de",
+  measurementId: "G-WN54HKHKFP"
+};
+
+/* 관리자 비밀번호 — 반드시 아래 값을 원하는 비밀번호로 바꾸세요.
+   (클라이언트 코드에 노출되므로 민감한 용도의 비밀번호는 피해주세요) */
+const ADMIN_PASSWORD = "1026";
+
+/* 재단/단체 이름 */
+const ORG_NAME = "(사)너브내행복나눔재단";
+document.getElementById("orgBadge").textContent = ORG_NAME;
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+/* ---------------- 유틸 ---------------- */
+function fmtTime(ts){
+  if(!ts) return "";
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleString("ko-KR", {month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit"});
+}
+/* 엑셀 서식에 쓰는 긴 날짜 표기 (예: 8월 3일 오후 09:57) */
+function fmtTimeLong(ts){
+  if(!ts) return "";
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const ampm = d.getHours() < 12 ? "오전" : "오후";
+  let h = d.getHours() % 12; if(h === 0) h = 12;
+  const hh = String(h).padStart(2,"0");
+  const mm = String(d.getMinutes()).padStart(2,"0");
+  return `${d.getMonth()+1}월 ${d.getDate()}일 ${ampm} ${hh}:${mm}`;
+}
+/* 엑셀 출력일시 표기 (예: 2026년 8월 4일 09:29) */
+function fmtPrintedAt(d = new Date()){
+  const hh = String(d.getHours()).padStart(2,"0");
+  const mm = String(d.getMinutes()).padStart(2,"0");
+  return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 ${hh}:${mm}`;
+}
+/* 엑셀 서명부 하단 날짜 표기 (예: 2026년 8월 4일) */
+function fmtDateOnly(d = new Date()){
+  return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`;
+}
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 2200);
+}
+function setSyncBadge(ok){
+  const b = document.getElementById("syncBadge");
+  b.textContent = ok ? "실시간 동기화 완료" : "연결 확인 중";
+}
+
+/* ---------------- 탭 전환 ---------------- */
+const tabApplyBtn = document.getElementById("tabApplyBtn");
+const tabAdminBtn = document.getElementById("tabAdminBtn");
+const applyView = document.getElementById("applyView");
+const adminView = document.getElementById("adminView");
+
+tabApplyBtn.addEventListener("click", ()=>{
+  tabApplyBtn.classList.add("active");
+  tabAdminBtn.classList.remove("active");
+  applyView.style.display = "";
+  adminView.style.display = "none";
+});
+tabAdminBtn.addEventListener("click", ()=>{
+  tabAdminBtn.classList.add("active");
+  tabApplyBtn.classList.remove("active");
+  applyView.style.display = "none";
+  adminView.style.display = "";
+});
+
+/* ---------------- 신청 폼 선택 버튼 ---------------- */
+function wireChoiceRow(rowId){
+  const row = document.getElementById(rowId);
+  row.addEventListener("click", (e)=>{
+    const btn = e.target.closest(".choice-btn");
+    if(!btn) return;
+    [...row.children].forEach(c=>c.classList.remove("selected","warn","neutral"));
+    btn.classList.add("selected");
+    if(rowId === "attendRow"){
+      if(btn.dataset.val === "불참") btn.classList.add("warn");
+      if(btn.dataset.val === "위임") btn.classList.add("neutral");
+      // 불참/위임 선택 시 식사 여부는 자동 "안함"으로, 참석 재선택 시 식사행 다시 노출
+      const mealRow = document.getElementById("mealRow");
+      if(btn.dataset.val !== "참석"){
+        mealRow.style.opacity = "0.45";
+        mealRow.style.pointerEvents = "none";
+        [...mealRow.children].forEach(c=>c.classList.remove("selected"));
+        mealRow.children[1].classList.add("selected"); // 식사안함
+      } else {
+        mealRow.style.opacity = "1";
+        mealRow.style.pointerEvents = "auto";
+      }
+    }
+  });
+}
+["roleRow","attendRow","mealRow"].forEach(wireChoiceRow);
+
+function getSelected(rowId){
+  const row = document.getElementById(rowId);
+  const sel = row.querySelector(".choice-btn.selected");
+  return sel ? sel.dataset.val : null;
+}
+
+/* 다음 신청자를 위해 선택 버튼을 기본값으로 초기화 (회원 / 참석 / 식사 참석) */
+function resetChoiceRows(){
+  function selectDefault(rowId, index){
+    const row = document.getElementById(rowId);
+    [...row.children].forEach((c,i)=>{
+      c.classList.remove("selected","warn","neutral");
+      if(i === index) c.classList.add("selected");
+    });
+  }
+  selectDefault("roleRow", 0);
+  selectDefault("attendRow", 0);
+  selectDefault("mealRow", 0);
+  const mealRow = document.getElementById("mealRow");
+  mealRow.style.opacity = "1";
+  mealRow.style.pointerEvents = "auto";
+}
+
+const submitBtn = document.getElementById("submitBtn");
+
+/* ============================================================
+   행사(이벤트) 데이터 구조
+   - events/{eventId}                -> 행사 정보 (제목/일시/장소/안건)
+   - events/{eventId}/responses/{id} -> 해당 행사의 참석 신청 내역
+   - config/current.activeEventId    -> 지금 참석 신청 화면에 표시할 행사 ID
+   ============================================================ */
+function listenActiveEventId(onChange){
+  const ref = doc(db, "config", "current");
+  return onSnapshot(ref, (snap)=>{
+    setSyncBadge(true);
+    onChange(snap.exists() ? (snap.data().activeEventId || null) : null);
+  }, (err)=>{
+    console.error(err);
+    setSyncBadge(false);
+  });
+}
+
+function listenEventInfo(eventId, onData){
+  const ref = doc(db, "events", eventId);
+  return onSnapshot(ref, (snap)=>{
+    onData(snap.exists() ? snap.data() : null);
+  }, (err)=>console.error(err));
+}
+
+function listenEventResponses(eventId, onData){
+  const ref = collection(db, "events", eventId, "responses");
+  const q = query(ref, orderBy("submittedAt","desc"));
+  return onSnapshot(q, (snap)=>{
+    const rows = [];
+    snap.forEach(d=>rows.push({id:d.id, ...d.data()}));
+    onData(rows);
+  }, (err)=>console.error(err));
+}
+
+/* ---------------- 공개 화면: 현재 활성 행사 구독 ---------------- */
+let activeEventId = null;
+let unsubActiveInfo = null;
+let unsubActiveResponses = null;
+
+listenActiveEventId((id)=>{
+  activeEventId = id;
+  if(unsubActiveInfo) unsubActiveInfo();
+  if(unsubActiveResponses) unsubActiveResponses();
+
+  if(!id){
+    document.title = "행사 참석 신청";
+    document.getElementById("eventTitleHeader").textContent = "행사 참석 신청";
+    document.getElementById("infoDate").textContent = "관리자가 아직 행사를 등록하지 않았습니다";
+    document.getElementById("infoLocation").textContent = "-";
+    document.getElementById("infoAgenda").textContent = "-";
+    renderPublicStats([]);
+    renderPublicList([]);
+    submitBtn.disabled = true;
+    return;
+  }
+
+  submitBtn.disabled = false;
+  unsubActiveInfo = listenEventInfo(id, (data)=>{
+    const title = data?.title || "행사 참석 신청";
+    document.title = title;
+    document.getElementById("eventTitleHeader").textContent = title;
+    document.getElementById("infoDate").textContent = data?.date || "-";
+    document.getElementById("infoLocation").textContent = data?.location || "-";
+    document.getElementById("infoAgenda").textContent = data?.agenda || "-";
+  });
+  unsubActiveResponses = listenEventResponses(id, (rows)=>{
+    renderPublicStats(rows);
+    renderPublicList(rows);
+  });
+});
+
+function renderPublicStats(rows){
+  const attend = rows.filter(r=>r.attendance === "참석").length;
+  const meal = rows.filter(r=>r.attendance === "참석" && r.meal === "참석").length;
+  const absent = rows.filter(r=>r.attendance !== "참석").length;
+  document.getElementById("statAttend").innerHTML = `${attend}<span style="font-size:13px">명</span>`;
+  document.getElementById("statMeal").innerHTML = `${meal}<span style="font-size:13px">명</span>`;
+  document.getElementById("statAbsent").innerHTML = `${absent}<span style="font-size:13px">명</span>`;
+  document.getElementById("statTotal").textContent = rows.length;
+}
+
+function renderPublicList(rows){
+  const wrap = document.getElementById("publicList");
+  if(rows.length === 0){
+    wrap.innerHTML = `<div class="empty">아직 신청 내역이 없습니다</div>`;
+    return;
+  }
+  wrap.innerHTML = rows.map(r=>{
+    const isAbsent = r.attendance !== "참석";
+    const tagClass = r.attendance === "참석" ? "" : (r.attendance === "위임" ? "proxy" : "absent");
+    return `
+      <div class="list-item">
+        <div class="li-left">
+          <div class="li-check ${isAbsent ? "absent":""}">${isAbsent ? "✕" : "✓"}</div>
+          <div>
+            <div class="li-name">${escapeHtml(r.name || "익명")}<span class="role">(${escapeHtml(r.role||"")})</span></div>
+            <div class="li-time">${fmtTime(r.submittedAt)}</div>
+          </div>
+        </div>
+        <span class="li-tag ${tagClass}">${r.attendance}</span>
+      </div>`;
+  }).join("");
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+/* ---------------- 신청 제출 ---------------- */
+submitBtn.addEventListener("click", async ()=>{
+  const name = document.getElementById("fName").value.trim();
+  const role = getSelected("roleRow");
+  const attendance = getSelected("attendRow");
+  const meal = attendance === "참석" ? getSelected("mealRow") : "안함";
+  const note = document.getElementById("fNote").value.trim();
+
+  if(!name){
+    showToast("성함을 입력해주세요");
+    document.getElementById("fName").focus();
+    return;
+  }
+  if(!activeEventId){
+    showToast("현재 등록된 행사가 없습니다. 관리자에게 문의해주세요.");
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = "제출 중...";
+  try{
+    const writePromise = addDoc(collection(db, "events", activeEventId, "responses"), {
+      name, role, attendance, meal, note,
+      submittedAt: serverTimestamp()
+    });
+    // 서버 응답이 느리거나 오지 않을 때 버튼이 영원히 멈추지 않도록 8초 타임아웃을 둠.
+    // (Firestore는 로컬에 즉시 반영되므로 데이터 자체는 이미 저장된 상태일 수 있음)
+    const timedOut = await Promise.race([
+      writePromise.then(()=>false),
+      new Promise(resolve=>setTimeout(()=>resolve(true), 8000))
+    ]);
+    if(timedOut){
+      showToast("네트워크 응답이 느려요. 잠시 후 아래 명단에서 확인해주세요.");
+      writePromise.catch(e=>console.error("지연된 제출 중 오류:", e));
+    }else{
+      showToast("신청이 완료되었습니다 ✅");
+    }
+    document.getElementById("fName").value = "";
+    document.getElementById("fNote").value = "";
+    resetChoiceRows();
+  }catch(e){
+    console.error(e);
+    showToast("제출 중 오류가 발생했습니다. Firebase 설정을 확인해주세요.");
+  }finally{
+    submitBtn.disabled = false;
+    submitBtn.textContent = "참석 신청서 제출 ➤";
+  }
+});
+
+/* ============================================================
+   관리자 모드
+   ============================================================ */
+let adminEventId = null;
+let unsubAdminInfo = null;
+let unsubAdminResponses = null;
+let unsubEventsList = null;
+let adminRowsCache = [];
+let adminEventTitleCache = "";
+let adminEventInfoCache = null;
+let infoDirty = false;
+let eventsCache = [];
+
+document.getElementById("adminLoginBtn").addEventListener("click", tryAdminLogin);
+document.getElementById("adminPw").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") tryAdminLogin();
+});
+
+function tryAdminLogin(){
+  const pw = document.getElementById("adminPw").value;
+  if(pw === ADMIN_PASSWORD){
+    document.getElementById("adminLockCard").style.display = "none";
+    document.getElementById("adminPanel").style.display = "";
+    document.getElementById("adminErr").style.display = "none";
+    initAdminPanel();
+  }else{
+    document.getElementById("adminErr").style.display = "block";
+  }
+}
+
+document.getElementById("adminLogoutBtn").addEventListener("click", ()=>{
+  document.getElementById("adminLockCard").style.display = "";
+  document.getElementById("adminPanel").style.display = "none";
+  document.getElementById("adminPw").value = "";
+  if(unsubAdminInfo) unsubAdminInfo();
+  if(unsubAdminResponses) unsubAdminResponses();
+  if(unsubEventsList) unsubEventsList();
+});
+
+function listenEventsList(onData){
+  const ref = collection(db, "events");
+  const q = query(ref, orderBy("createdAt","desc"));
+  return onSnapshot(q, (snap)=>{
+    const rows = [];
+    snap.forEach(d=>rows.push({id:d.id, ...d.data()}));
+    onData(rows);
+  }, (err)=>console.error(err));
+}
+
+function initAdminPanel(){
+  if(unsubEventsList) unsubEventsList();
+  const select = document.getElementById("eventSelect");
+
+  unsubEventsList = listenEventsList((rows)=>{
+    eventsCache = rows;
+    const prevSelected = select.value;
+
+    if(rows.length === 0){
+      select.innerHTML = `<option value="">행사를 만들면 여기에 표시됩니다</option>`;
+      adminEventId = null;
+      updateActiveIndicator();
+      renderAdminStats([]);
+      renderAdminTable([]);
+      document.getElementById("adminEventLabel").textContent = "";
+      document.getElementById("editTitle").value = "";
+      document.getElementById("editDate").value = "";
+      document.getElementById("editLocation").value = "";
+      document.getElementById("editAgenda").value = "";
+      return;
+    }
+
+    select.innerHTML = rows.map(r=>{
+      const label = `${r.title || "(제목 없음)"}${r.date ? " · " + r.date : ""}${r.id === activeEventId ? " (표시중)" : ""}`;
+      return `<option value="${r.id}">${escapeHtml(label)}</option>`;
+    }).join("");
+
+    // 선택 유지: 이전 선택값이 여전히 있으면 유지, 없으면 현재 활성 행사 또는 첫 항목
+    let toSelect = prevSelected && rows.some(r=>r.id === prevSelected) ? prevSelected
+      : (activeEventId && rows.some(r=>r.id === activeEventId) ? activeEventId : rows[0].id);
+
+    select.value = toSelect;
+    if(toSelect !== adminEventId){
+      subscribeAdminEvent(toSelect);
+    }else{
+      updateActiveIndicator();
+    }
+  });
+
+  select.addEventListener("change", ()=>{
+    if(!select.value) return;
+    subscribeAdminEvent(select.value);
+  });
+
+  ["editTitle","editDate","editLocation","editAgenda"].forEach(id=>{
+    document.getElementById(id).addEventListener("input", ()=>{
+      infoDirty = true;
+      document.getElementById("saveBanner").classList.add("show");
+    });
+  });
+}
+
+function updateActiveIndicator(){
+  const el = document.getElementById("activeIndicator");
+  const setBtn = document.getElementById("setActiveBtn");
+  if(!adminEventId){
+    el.textContent = "";
+    setBtn.style.display = "none";
+    return;
+  }
+  if(adminEventId === activeEventId){
+    el.textContent = "✅ 현재 참석 신청 화면에 표시 중인 행사입니다.";
+    setBtn.style.display = "none";
+  }else{
+    el.textContent = "이 행사는 지금 참석 신청 화면에 표시되고 있지 않습니다.";
+    setBtn.style.display = "flex";
+  }
+}
+
+function subscribeAdminEvent(eventId){
+  if(unsubAdminInfo) unsubAdminInfo();
+  if(unsubAdminResponses) unsubAdminResponses();
+  adminEventId = eventId;
+  infoDirty = false;
+  document.getElementById("saveBanner").classList.remove("show");
+  document.getElementById("eventSelect").value = eventId;
+  updateActiveIndicator();
+
+  unsubAdminInfo = listenEventInfo(eventId, (data)=>{
+    adminEventTitleCache = data?.title || "";
+    adminEventInfoCache = data || null;
+    document.getElementById("adminEventLabel").textContent = adminEventTitleCache;
+    if(infoDirty) return; // 입력 중에는 덮어쓰지 않음
+    document.getElementById("editTitle").value = data?.title || "";
+    document.getElementById("editDate").value = data?.date || "";
+    document.getElementById("editLocation").value = data?.location || "";
+    document.getElementById("editAgenda").value = data?.agenda || "";
+  });
+
+  unsubAdminResponses = listenEventResponses(eventId, (rows)=>{
+    adminRowsCache = rows;
+    renderAdminStats(rows);
+    renderAdminTable(rows);
+  });
+}
+
+function renderAdminStats(rows){
+  const attend = rows.filter(r=>r.attendance === "참석").length;
+  const meal = rows.filter(r=>r.attendance === "참석" && r.meal === "참석").length;
+  const absent = rows.filter(r=>r.attendance !== "참석").length;
+  document.getElementById("adminStatAttend").textContent = attend;
+  document.getElementById("adminStatMeal").textContent = meal;
+  document.getElementById("adminStatAbsent").textContent = absent;
+}
+
+function renderAdminTable(rows){
+  const body = document.getElementById("adminTableBody");
+  if(rows.length === 0){
+    body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#9aa8a4;padding:16px;">데이터 없음</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map((r,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td>${escapeHtml(r.name||"")}</td>
+      <td>${escapeHtml(r.role||"")}</td>
+      <td>${escapeHtml(r.attendance||"")}</td>
+      <td>${escapeHtml(r.meal||"")}</td>
+      <td>${escapeHtml(r.note||"")}</td>
+      <td>${fmtTime(r.submittedAt)}</td>
+    </tr>`).join("");
+}
+
+/* 새 행사 만들기 */
+document.getElementById("createEventBtn").addEventListener("click", async ()=>{
+  const title = document.getElementById("newTitle").value.trim();
+  const date = document.getElementById("newDate").value.trim();
+  const location = document.getElementById("newLocation").value.trim();
+  const agenda = document.getElementById("newAgenda").value.trim();
+  const btn = document.getElementById("createEventBtn");
+
+  if(!title){
+    showToast("행사 제목을 입력해주세요");
+    document.getElementById("newTitle").focus();
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "생성 중...";
+  try{
+    const ref = await addDoc(collection(db, "events"), {
+      title, date, location, agenda,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    await setDoc(doc(db, "config", "current"), { activeEventId: ref.id });
+
+    document.getElementById("newTitle").value = "";
+    document.getElementById("newDate").value = "";
+    document.getElementById("newLocation").value = "";
+    document.getElementById("newAgenda").value = "";
+
+    subscribeAdminEvent(ref.id);
+    showToast("새 행사가 시작되었습니다 ✅ 참석 신청 화면에 바로 반영됩니다");
+  }catch(e){
+    console.error(e);
+    showToast("행사 생성 실패. Firebase 설정 및 보안 규칙을 확인해주세요.");
+  }finally{
+    btn.disabled = false;
+    btn.textContent = "🚀 새 행사로 시작하기";
+  }
+});
+
+/* 선택한 행사 정보 저장 */
+document.getElementById("saveInfoBtn").addEventListener("click", async ()=>{
+  if(!adminEventId){
+    showToast("먼저 행사를 선택하거나 새로 만들어주세요");
+    return;
+  }
+  const title = document.getElementById("editTitle").value.trim();
+  const date = document.getElementById("editDate").value.trim();
+  const location = document.getElementById("editLocation").value.trim();
+  const agenda = document.getElementById("editAgenda").value.trim();
+
+  if(!title){
+    showToast("행사 제목을 입력해주세요");
+    document.getElementById("editTitle").focus();
+    return;
+  }
+
+  try{
+    await setDoc(doc(db, "events", adminEventId), {
+      title, date, location, agenda,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    infoDirty = false;
+    document.getElementById("saveBanner").classList.remove("show");
+    showToast("행사 정보가 저장되었습니다 ✅");
+  }catch(e){
+    console.error(e);
+    showToast("저장 실패. Firebase 설정 및 보안 규칙을 확인해주세요.");
+  }
+});
+
+/* 선택한 행사를 참석 신청 화면에 표시 */
+document.getElementById("setActiveBtn").addEventListener("click", async ()=>{
+  if(!adminEventId) return;
+  try{
+    await setDoc(doc(db, "config", "current"), { activeEventId: adminEventId });
+    showToast("참석 신청 화면이 이 행사로 전환되었습니다 ✅");
+  }catch(e){
+    console.error(e);
+    showToast("전환 실패. Firebase 설정 및 보안 규칙을 확인해주세요.");
+  }
+});
+
+/* ============================================================
+   엑셀(xlsx) 명단 다운로드
+   - 업로드해주신 서식(제목 배너 + 집계표 + 참석명단 / 참석자 서명부)을 그대로 재현합니다.
+   ============================================================ */
+const BRAND_COLORS = {
+  titleBg: "FF047857",       // 참석명단 시트 제목 배너
+  signTitleBg: "FF065F46",   // 서명부 시트 제목 배너 (더 진한 녹색)
+  tableHeadBg: "FF0F766E",   // 참석명단 표 헤더
+  signHeadBg: "FF047857",    // 서명부 표 헤더
+  subInfoBg: "FFF1F5F9",
+  statHeadBg: "FFF1F5F9",
+  attendValBg: "FFECFDF5", attendValText: "FF047857",
+  mealValBg: "FFFFFBEB",   mealValText: "FFD97706",
+  neutralValBg: "FFF8FAFC", neutralValText: "FF475569",
+  rowAlt: "FFF8FAFC", rowBase: "FFFFFFFF",
+  badgeAttendBg: "FFDCFCE7", badgeAttendText: "FF166534",
+  badgeAbsentBg: "FFF1F5F9", badgeAbsentText: "FF475569",
+  badgeProxyBg: "FFFFFBEB",  badgeProxyText: "FFD97706",
+  signPlaceholderBg: "FFFAFAFA", signPlaceholderText: "FF94A3B8",
+  border: "FFE2E8F0"
+};
+
+function styleCell(cell, font, fillArgb, hAlign = "center", withBorder = false){
+  const f = { name: "맑은 고딕", ...font };
+  if(f.color && typeof f.color === "string"){
+    f.color = { argb: f.color }; // ExcelJS는 color를 {argb:"FF..."} 객체로 받아야 함
+  }
+  cell.font = f;
+  if(fillArgb){
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: fillArgb } };
+  }
+  cell.alignment = { horizontal: hAlign, vertical: "middle", wrapText: false };
+  if(withBorder){
+    const b = { style: "thin", color: { argb: BRAND_COLORS.border } };
+    cell.border = { top: b, bottom: b, left: b, right: b };
+  }
+}
+
+function safeSheetName(name){
+  let n = String(name).replace(/[:\\/?*\[\]]/g, "_").trim();
+  if(!n) n = "행사";
+  if(n.length > 31) n = n.slice(0, 31);
+  return n;
+}
+
+function buildAttendanceSheet(wb, rows, title){
+  const ws = wb.addWorksheet(safeSheetName(`${title}_참석명단`), { views: [{ showGridLines: false }] });
+  ws.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.2, footer:0.2 } };
+  ws.columns = [{width:8.83},{width:14.83},{width:16.83},{width:14.83},{width:16.83},{width:42.83},{width:22.83}];
+
+  ws.mergeCells("A1:G2");
+  styleCell(ws.getCell("A1"), { bold:true, size:15, color:"FFFFFFFF" }, BRAND_COLORS.titleBg, "center");
+  ws.getCell("A1").value = `${ORG_NAME} ${title} 참석 명단`;
+  ws.getRow(1).height = 22; ws.getRow(2).height = 22;
+
+  ws.mergeCells("A3:G3");
+  styleCell(ws.getCell("A3"), { size:9, color:"FF475569" }, null, "right");
+  ws.getCell("A3").value = `출력일시: ${fmtPrintedAt()}  |  총 제출 건수: ${rows.length}건`;
+  ws.getRow(3).height = 18;
+  ws.getRow(4).height = 10;
+
+  const attend = rows.filter(r=>r.attendance === "참석").length;
+  const meal = rows.filter(r=>r.attendance === "참석" && r.meal === "참석").length;
+  const absentOnly = rows.filter(r=>r.attendance === "불참").length;
+  const proxy = rows.filter(r=>r.attendance === "위임").length;
+
+  const statLabels = ["구분","참석 확정","식사 예정","불참 인원","의결 위임"];
+  ["A5","B5","C5","D5","E5"].forEach((coord,i)=>{
+    styleCell(ws.getCell(coord), { bold:true, size:10, color:"FF1E293B" }, BRAND_COLORS.statHeadBg, "center", true);
+    ws.getCell(coord).value = statLabels[i];
+  });
+  ws.mergeCells("F5:G5");
+  styleCell(ws.getCell("F5"), { bold:true, size:10, color:"FF1E293B" }, BRAND_COLORS.statHeadBg, "center", true);
+  ws.getCell("F5").value = "전체 제출";
+
+  styleCell(ws.getCell("A6"), { bold:true, size:10, color:"FF1E293B" }, BRAND_COLORS.statHeadBg, "center", true);
+  ws.getCell("A6").value = "인원(명)";
+  styleCell(ws.getCell("B6"), { bold:true, size:11, color:BRAND_COLORS.attendValText }, BRAND_COLORS.attendValBg, "center", true);
+  ws.getCell("B6").value = `${attend} 명`;
+  styleCell(ws.getCell("C6"), { bold:true, size:11, color:BRAND_COLORS.mealValText }, BRAND_COLORS.mealValBg, "center", true);
+  ws.getCell("C6").value = `${meal} 명`;
+  styleCell(ws.getCell("D6"), { bold:true, size:11, color:BRAND_COLORS.neutralValText }, BRAND_COLORS.neutralValBg, "center", true);
+  ws.getCell("D6").value = `${absentOnly} 명`;
+  styleCell(ws.getCell("E6"), { bold:true, size:11, color:BRAND_COLORS.neutralValText }, BRAND_COLORS.neutralValBg, "center", true);
+  ws.getCell("E6").value = `${proxy} 명`;
+  ws.mergeCells("F6:G6");
+  styleCell(ws.getCell("F6"), { bold:true, size:10, color:"FF1E293B" }, BRAND_COLORS.statHeadBg, "center", true);
+  ws.getCell("F6").value = `${rows.length} 명`;
+  ws.getRow(5).height = 20; ws.getRow(6).height = 24;
+  ws.getRow(7).height = 12;
+
+  const headers = ["연번","성함","직책/소속","참석 여부","식사 여부","비고 및 전달사항","신청 일시"];
+  headers.forEach((h,i)=>{
+    const c = ws.getRow(8).getCell(i+1);
+    styleCell(c, { bold:true, size:11, color:"FFFFFFFF" }, BRAND_COLORS.tableHeadBg, "center", true);
+    c.value = h;
+  });
+  ws.getRow(8).height = 26;
+
+  rows.forEach((r,i)=>{
+    const rowFill = i % 2 === 0 ? BRAND_COLORS.rowBase : BRAND_COLORS.rowAlt;
+    const row = ws.getRow(9+i);
+    row.height = 24;
+
+    styleCell(row.getCell(1), { size:10, color:"FF1E293B" }, rowFill, "center", true);
+    row.getCell(1).value = i+1;
+    styleCell(row.getCell(2), { bold:true, size:10, color:"FF0F172A" }, rowFill, "center", true);
+    row.getCell(2).value = r.name || "";
+    styleCell(row.getCell(3), { size:10, color:"FF1E293B" }, rowFill, "center", true);
+    row.getCell(3).value = r.role || "";
+
+    let attFill = rowFill, attColor = "FF1E293B";
+    if(r.attendance === "참석"){ attFill = BRAND_COLORS.badgeAttendBg; attColor = BRAND_COLORS.badgeAttendText; }
+    else if(r.attendance === "불참"){ attFill = BRAND_COLORS.badgeAbsentBg; attColor = BRAND_COLORS.badgeAbsentText; }
+    else if(r.attendance === "위임"){ attFill = BRAND_COLORS.badgeProxyBg; attColor = BRAND_COLORS.badgeProxyText; }
+    styleCell(row.getCell(4), { bold:true, size:10, color:attColor }, attFill, "center", true);
+    row.getCell(4).value = r.attendance || "";
+
+    styleCell(row.getCell(5), { size:10, color:"FF1E293B" }, rowFill, "center", true);
+    row.getCell(5).value = r.meal || "";
+    styleCell(row.getCell(6), { size:10, color:"FF334155" }, rowFill, "left", true);
+    row.getCell(6).value = (r.note && r.note.trim()) ? r.note : "-";
+    styleCell(row.getCell(7), { size:10, color:"FF1E293B" }, rowFill, "center", true);
+    row.getCell(7).value = fmtTimeLong(r.submittedAt);
+  });
+}
+
+function buildSignatureSheet(wb, rows, title, info){
+  const ws = wb.addWorksheet(safeSheetName(`${title}_서명부`), { views: [{ showGridLines: false }] });
+  ws.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.2, footer:0.2 } };
+  ws.columns = [{width:8.83},{width:15.83},{width:18.83},{width:16.83},{width:30.83},{width:24.83}];
+
+  ws.mergeCells("A1:F2");
+  styleCell(ws.getCell("A1"), { bold:true, size:16, color:"FFFFFFFF" }, BRAND_COLORS.signTitleBg, "center");
+  ws.getCell("A1").value = `${ORG_NAME} ${title} 참석자 서명부`;
+  ws.getRow(1).height = 22; ws.getRow(2).height = 22;
+
+  ws.mergeCells("A3:F3");
+  styleCell(ws.getCell("A3"), { size:9.5, color:"FF334155" }, BRAND_COLORS.subInfoBg, "left", true);
+  ws.getCell("A3").value = `  📅 행사 일시: ${info?.date || "-"}   |   📍 장소: ${info?.location || "-"}`;
+  ws.getRow(3).height = 20;
+
+  ws.mergeCells("A4:F4");
+  styleCell(ws.getCell("A4"), { size:9.5, color:"FF334155" }, BRAND_COLORS.subInfoBg, "left", true);
+  ws.getCell("A4").value = `  📋 안건: ${info?.agenda || "-"}   |   출력일시: ${fmtPrintedAt()}`;
+  ws.getRow(4).height = 20;
+  ws.getRow(5).height = 10;
+
+  const headers = ["연번","성함","직책 / 소속","식사 여부","서명 / 날인 (현장 자필)","비고"];
+  headers.forEach((h,i)=>{
+    const c = ws.getRow(6).getCell(i+1);
+    styleCell(c, { bold:true, size:11, color:"FFFFFFFF" }, BRAND_COLORS.signHeadBg, "center", true);
+    c.value = h;
+  });
+  ws.getRow(6).height = 28;
+
+  const attendees = rows.filter(r=>r.attendance === "참석");
+  const EXTRA_BLANK_ROWS = 5;
+  const totalSignRows = attendees.length + EXTRA_BLANK_ROWS;
+
+  for(let i=0;i<totalSignRows;i++){
+    const row = ws.getRow(7+i);
+    row.height = 36;
+    const r = i < attendees.length ? attendees[i] : null;
+
+    styleCell(row.getCell(1), { size:10, color:"FF1E293B" }, BRAND_COLORS.rowBase, "center", true);
+    row.getCell(1).value = i+1;
+    styleCell(row.getCell(2), { bold:true, size:11, color:"FF0F172A" }, BRAND_COLORS.rowBase, "center", true);
+    row.getCell(2).value = r ? (r.name || "") : "";
+    styleCell(row.getCell(3), { size:10, color:"FF1E293B" }, BRAND_COLORS.rowBase, "center", true);
+    row.getCell(3).value = r ? (r.role || "") : "";
+    styleCell(row.getCell(4), { size:10, color:"FF1E293B" }, BRAND_COLORS.rowBase, "center", true);
+    row.getCell(4).value = r ? (r.meal || "") : "";
+    styleCell(row.getCell(5), { size:10, color:BRAND_COLORS.signPlaceholderText }, BRAND_COLORS.signPlaceholderBg, "center", true);
+    row.getCell(5).value = "( 서 명 )";
+    styleCell(row.getCell(6), { size:10, color:"FF1E293B" }, BRAND_COLORS.rowBase, "center", true);
+    row.getCell(6).value = r ? ((r.note && r.note.trim()) ? r.note : "") : "현장 참석";
+  }
+
+  let nextRow = 7 + totalSignRows + 1;
+  ws.getRow(nextRow-1).height = 16;
+
+  ws.mergeCells(`A${nextRow}:F${nextRow}`);
+  styleCell(ws.getCell(`A${nextRow}`), { bold:true, size:11, color:"FF0F172A" }, null, "left");
+  ws.getCell(`A${nextRow}`).value = `위와 같이 ${ORG_NAME} ${title}에 참석하였음을 확인합니다.`;
+  ws.getRow(nextRow).height = 26;
+
+  nextRow++;
+  ws.mergeCells(`A${nextRow}:F${nextRow}`);
+  styleCell(ws.getCell(`A${nextRow}`), { bold:true, size:11, color:"FF0F172A" }, null, "left");
+  ws.getCell(`A${nextRow}`).value = `${fmtDateOnly()}   |   확인자: ${ORG_NAME} 이사장                      (인)`;
+  ws.getRow(nextRow).height = 26;
+}
+
+/* 엑셀 다운로드 버튼 */
+document.getElementById("downloadExcelBtn").addEventListener("click", async ()=>{
+  if(adminRowsCache.length === 0){
+    showToast("다운로드할 데이터가 없습니다");
+    return;
+  }
+  const btn = document.getElementById("downloadExcelBtn");
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "생성 중...";
+  try{
+    const ExcelJSLib = window.ExcelJS;
+    if(!ExcelJSLib){
+      throw new Error("엑셀 라이브러리를 불러오지 못했습니다 (인터넷 연결을 확인해주세요)");
+    }
+    const title = adminEventTitleCache || "행사";
+    const wb = new ExcelJSLib.Workbook();
+    wb.creator = ORG_NAME;
+    wb.created = new Date();
+
+    buildAttendanceSheet(wb, adminRowsCache, title);
+    buildSignatureSheet(wb, adminRowsCache, title, adminEventInfoCache);
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const safeTitle = title.replace(/[\\/:*?"<>|]+/g, "_");
+    const now = new Date();
+    const stamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}`;
+    a.href = url;
+    a.download = `${safeTitle}_참석명단_${stamp}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("엑셀 파일이 다운로드되었습니다 ✅");
+  }catch(e){
+    console.error(e);
+    showToast("엑셀 생성 중 오류가 발생했습니다");
+  }finally{
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+});
+</script>
+</body>
+</html>
