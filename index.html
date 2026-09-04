@@ -489,7 +489,7 @@ import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  initializeAppCheck, ReCaptchaV3Provider
+  initializeAppCheck, ReCaptchaEnterpriseProvider
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
 
 /* ============================================================
@@ -523,17 +523,16 @@ const CURRENT_EVENT_ID = "current";
 
 const app = initializeApp(firebaseConfig);
 
-/* App Check(reCAPTCHA v3) — 실제 브라우저가 아닌 봇/스크립트의 무분별한 접근을 걸러줍니다.
-   아래 사이트 키를 https://www.google.com/recaptcha/admin 에서 발급받은 reCAPTCHA v3
-   키로 교체한 뒤, Firebase 콘솔 > App Check 에서 이 앱을 등록하고, 처음에는
-   "모니터링" 상태로 며칠 지켜본 뒤 이상 없으면 Firestore/Storage에 "적용(Enforce)"으로
-   전환해주세요. 키를 아직 안 넣으셨다면 아래 initializeAppCheck는 콘솔에 에러를 남기지만
-   앱 동작 자체에는(강제 적용 전까지는) 영향이 없습니다. */
-const APP_CHECK_SITE_KEY = "REPLACE_WITH_RECAPTCHA_V3_SITE_KEY";
-if(APP_CHECK_SITE_KEY && APP_CHECK_SITE_KEY !== "REPLACE_WITH_RECAPTCHA_V3_SITE_KEY"){
+/* App Check(reCAPTCHA Enterprise) — 실제 브라우저가 아닌 봇/스크립트의 무분별한 접근을 걸러줍니다.
+   아래 사이트 키는 Google Cloud 콘솔 > 보안 > Fraud Defense(reCAPTCHA 키)에서 발급받은
+   reCAPTCHA Enterprise 키이고, Firebase 콘솔 > App Check 에도 이미 같은 키로 앱이
+   등록되어 있어야 합니다. 처음에는 Firestore/Storage 각각을 "모니터링" 상태로 며칠
+   지켜본 뒤 이상 없으면 "적용(Enforce)"으로 전환해주세요. */
+const APP_CHECK_SITE_KEY = "6LfZ6agtAAAAAMmu6taiq5zkoPx-DinSzFsbpXRu";
+if(APP_CHECK_SITE_KEY && APP_CHECK_SITE_KEY !== "REPLACE_WITH_RECAPTCHA_ENTERPRISE_SITE_KEY"){
   try{
     initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider(APP_CHECK_SITE_KEY),
+      provider: new ReCaptchaEnterpriseProvider(APP_CHECK_SITE_KEY),
       isTokenAutoRefreshEnabled: true
     });
   }catch(e){
@@ -912,7 +911,7 @@ submitBtn.addEventListener("click", async ()=>{
     resetChoiceRows();
   }catch(e){
     console.error(e);
-    showToast("제출 중 오류가 발생했습니다. Firebase 설정을 확인해주세요.");
+    showToast("제출에 실패했습니다. 잠시 후 다시 시도해주세요. 문제가 계속되면 관리자에게 문의해주세요.");
   }finally{
     submitBtn.disabled = false;
     submitBtn.textContent = "참석 신청서 제출 ➤";
@@ -1282,7 +1281,7 @@ document.getElementById("erSaveBtn").addEventListener("click", async ()=>{
     closeEditModal();
   }catch(e){
     console.error(e);
-    showToast("수정 실패. Firebase 설정 및 보안 규칙을 확인해주세요.");
+    showToast("수정에 실패했습니다. 잠시 후 다시 시도해주세요. 계속 실패하면 페이지를 새로고침해보세요.");
   }finally{
     btn.disabled = false;
   }
@@ -1309,7 +1308,7 @@ document.getElementById("adminTableBody").addEventListener("click", async (e)=>{
       showToast("삭제되었습니다");
     }catch(e){
       console.error(e);
-      showToast("삭제 실패. Firebase 설정 및 보안 규칙을 확인해주세요.");
+      showToast("삭제에 실패했습니다. 잠시 후 다시 시도해주세요. 계속 실패하면 페이지를 새로고침해보세요.");
       delBtn.disabled = false;
     }
   }
@@ -1412,7 +1411,7 @@ document.getElementById("createEventBtn").addEventListener("click", async ()=>{
       : "새 행사가 시작되었습니다 ✅ 참석 신청 화면에 바로 반영됩니다");
   }catch(e){
     console.error(e);
-    showToast("행사 초기화 실패. Firebase 설정 및 보안 규칙을 확인해주세요.");
+    showToast("행사 초기화 중 오류가 발생했습니다. '지난 행사 보관함'과 참석자 명단을 확인한 뒤 다시 시도해주세요. 계속 실패하면 페이지를 새로고침해보세요.");
   }finally{
     btn.disabled = false;
     btn.textContent = "🚀 새 행사로 시작하기";
@@ -1442,12 +1441,22 @@ document.getElementById("saveInfoBtn").addEventListener("click", async ()=>{
     showToast("행사 정보가 저장되었습니다 ✅");
   }catch(e){
     console.error(e);
-    showToast("저장 실패. Firebase 설정 및 보안 규칙을 확인해주세요.");
+    showToast("저장에 실패했습니다. 잠시 후 다시 시도해주세요. 계속 실패하면 페이지를 새로고침해보세요.");
   }
 });
 
 /* 회의 자료 업로드 */
 const MAX_MATERIAL_SIZE = 20 * 1024 * 1024; // 20MB
+
+/* Storage 경로에 안전하게 쓸 수 있도록 파일명의 슬래시·특수문자·공백을 정리합니다.
+   (화면에 보여줄 때는 원래 파일명(file.name)을 그대로 쓰고, escapeHtml로 안전하게
+   표시하므로 사용자가 보는 이름은 바뀌지 않습니다 — Storage 경로용으로만 씁니다.) */
+function sanitizeFileName(name){
+  return String(name)
+    .replace(/[\\/:*?"<>|]/g, "_")
+    .replace(/\s+/g, "_")
+    .slice(0, 150) || "file";
+}
 
 document.getElementById("uploadMaterialBtn").addEventListener("click", async ()=>{
   if(!adminEventId){
@@ -1465,37 +1474,55 @@ document.getElementById("uploadMaterialBtn").addEventListener("click", async ()=
   const originalText = btn.textContent;
   btn.disabled = true;
   let uploaded = 0, skipped = 0;
+  const failedNames = [];
 
   try{
-    for(const file of files){
+    for(let i = 0; i < files.length; i++){
+      const file = files[i];
       if(file.size > MAX_MATERIAL_SIZE){
         skipped++;
         continue;
       }
-      btn.textContent = `업로드 중... (${uploaded+1}/${files.length})`;
-      const path = `events/${adminEventId}/materials/${Date.now()}_${file.name}`;
-      const sRef = storageRef(storage, path);
-      await uploadBytes(sRef, file);
-      const url = await getDownloadURL(sRef);
-      await addDoc(collection(db, "events", adminEventId, "materials"), {
-        fileName: file.name,
-        url,
-        storagePath: path,
-        size: file.size,
-        contentType: file.type || "application/octet-stream",
-        uploadedAt: serverTimestamp()
-      });
-      uploaded++;
+      btn.textContent = `업로드 중... (${i+1}/${files.length})`;
+      // 파일 하나하나를 개별적으로 처리해서, 중간에 하나가 실패해도 나머지는
+      // 계속 진행되고 어떤 파일이 실패했는지 정확히 알려줄 수 있게 합니다.
+      try{
+        const safeFileName = sanitizeFileName(file.name);
+        const path = `events/${adminEventId}/materials/${Date.now()}_${i}_${safeFileName}`;
+        const sRef = storageRef(storage, path);
+        await uploadBytes(sRef, file);
+        const url = await getDownloadURL(sRef);
+        await addDoc(collection(db, "events", adminEventId, "materials"), {
+          fileName: file.name,
+          url,
+          storagePath: path,
+          size: file.size,
+          contentType: file.type || "application/octet-stream",
+          uploadedAt: serverTimestamp()
+        });
+        uploaded++;
+      }catch(fileErr){
+        console.error(`"${file.name}" 업로드 실패:`, fileErr);
+        failedNames.push(file.name);
+      }
     }
     input.value = "";
-    if(skipped > 0){
-      showToast(`${uploaded}개 업로드 완료, ${skipped}개는 20MB를 초과해 건너뛰었습니다`);
+
+    const parts = [];
+    if(uploaded > 0) parts.push(`${uploaded}개 업로드 완료`);
+    if(skipped > 0) parts.push(`${skipped}개는 20MB 초과로 건너뜀`);
+    if(failedNames.length > 0) parts.push(`${failedNames.length}개 실패(${failedNames.join(", ")})`);
+
+    if(parts.length === 0){
+      showToast("업로드할 파일이 없습니다");
+    }else if(failedNames.length === 0){
+      showToast(parts.join(", ") + " ✅");
     }else{
-      showToast("자료가 업로드되었습니다 ✅");
+      showToast(parts.join(", ") + " — 실패한 파일은 다시 시도해주세요");
     }
   }catch(e){
     console.error(e);
-    showToast("업로드 실패. Storage 설정 및 보안 규칙을 확인해주세요.");
+    showToast("업로드 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
   }finally{
     btn.disabled = false;
     btn.textContent = originalText;
@@ -1526,7 +1553,7 @@ document.getElementById("adminMaterialsList").addEventListener("click", async (e
     showToast("자료가 삭제되었습니다");
   }catch(e){
     console.error(e);
-    showToast("삭제 실패. Firebase 설정 및 보안 규칙을 확인해주세요.");
+    showToast("삭제에 실패했습니다. 잠시 후 다시 시도해주세요. 계속 실패하면 페이지를 새로고침해보세요.");
     btn.disabled = false;
   }
 });
