@@ -333,7 +333,7 @@
           <div class="section-title" style="margin-bottom:0;">🆕 새 행사 만들기</div>
           <span class="logout-link" id="adminLogoutBtn">로그아웃</span>
         </div>
-        <small class="hint" style="margin-top:0;">이사회, 정기총회, 번개모임, 장학금 전달식 등 새로운 행사를 시작할 때 사용하세요. 만들면 즉시 참석 신청 화면이 이 행사로 전환됩니다.</small>
+        <small class="hint" style="margin-top:0;">이사회, 정기총회, 번개모임, 장학금 전달식 등 새로운 행사를 시작할 때 사용하세요.<br/>⚠️ 시작하면 <b>현재 행사의 정보·참석자 명단·첨부 자료가 모두 초기화</b>되며, 기존 데이터는 자동으로 아래 '지난 행사 보관함'에 저장됩니다.</small>
 
         <label>행사 제목 *</label>
         <input type="text" id="newTitle" placeholder="예: 2026년 정기총회 / 2월 이사회 / 장학금 전달식" />
@@ -351,15 +351,7 @@
       </div>
 
       <div class="card">
-        <div class="section-title">🗂️ 관리/조회할 행사 선택</div>
-        <select id="eventSelect" style="width:100%;padding:11px 12px;border:1px solid var(--gray-200);border-radius:10px;font-size:14px;background:var(--gray-50);color:var(--gray-800);font-family:inherit;">
-          <option value="">행사를 만들면 여기에 표시됩니다</option>
-        </select>
-        <small class="hint" id="activeIndicator"></small>
-      </div>
-
-      <div class="card">
-        <div class="section-title">✏️ 선택한 행사 정보 수정</div>
+        <div class="section-title">✏️ 현재 행사 정보 수정</div>
         <div class="save-banner" id="saveBanner">저장되지 않은 변경사항이 있습니다</div>
 
         <label>행사 제목 *</label>
@@ -376,9 +368,6 @@
 
         <div class="row-actions" style="margin-top:18px;">
           <button class="submit-btn" id="saveInfoBtn" style="margin-top:0;">💾 행사 정보 저장</button>
-        </div>
-        <div class="row-actions">
-          <button class="btn-secondary btn-primary-outline" id="setActiveBtn">📌 이 행사를 참석 신청 화면에 표시하기</button>
         </div>
       </div>
 
@@ -413,6 +402,27 @@
 
         <div class="row-actions">
           <button class="btn-secondary btn-primary-outline" id="downloadExcelBtn">⬇️ 참석명단 엑셀(xlsx) 다운로드</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">📦 지난 행사 보관함</div>
+        <small class="hint" style="margin-top:0;">'새 행사로 시작하기'로 초기화된 이전 행사의 정보·참석자 명단·자료 목록이 자동으로 이곳에 보관됩니다. (첨부 파일 원본은 삭제되며 파일명 정보만 남습니다)</small>
+
+        <select id="archiveSelect" style="width:100%;padding:11px 12px;border:1px solid var(--gray-200);border-radius:10px;font-size:14px;background:var(--gray-50);color:var(--gray-800);font-family:inherit;margin-top:12px;">
+          <option value="">보관된 지난 행사가 없습니다</option>
+        </select>
+
+        <div id="archiveDetail" style="display:none;margin-top:14px;">
+          <div class="stats">
+            <div class="stat"><div class="label">참석</div><div class="num" id="archiveStatAttend">0</div></div>
+            <div class="stat meal"><div class="label">식사</div><div class="num" id="archiveStatMeal">0</div></div>
+            <div class="stat absent"><div class="label">불참/위임</div><div class="num" id="archiveStatAbsent">0</div></div>
+          </div>
+          <div id="archiveMaterialsList" style="margin-top:14px;"></div>
+          <div class="row-actions">
+            <button class="btn-secondary btn-primary-outline" id="downloadArchiveExcelBtn">⬇️ 이 행사 명단 엑셀(xlsx) 다운로드</button>
+          </div>
         </div>
       </div>
 
@@ -468,7 +478,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, deleteDoc,
+  getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, collection, addDoc, deleteDoc,
   onSnapshot, serverTimestamp, query, orderBy
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
@@ -496,6 +506,11 @@ const ADMIN_PASSWORD = "1026";
 /* 재단/단체 이름 */
 const ORG_NAME = "(사)너브내행복나눔재단";
 document.getElementById("orgBadge").textContent = ORG_NAME;
+
+/* 이 앱은 "현재 행사" 문서 1개만 사용합니다.
+   "새 행사로 시작하기"를 누르면 이 문서(및 하위 참석자/자료)를 archivedEvents 컬렉션에
+   보관한 뒤 완전히 초기화합니다. */
+const CURRENT_EVENT_ID = "current";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -643,21 +658,12 @@ const submitBtn = document.getElementById("submitBtn");
 
 /* ============================================================
    행사(이벤트) 데이터 구조
-   - events/{eventId}                -> 행사 정보 (제목/일시/장소/안건)
-   - events/{eventId}/responses/{id} -> 해당 행사의 참석 신청 내역
-   - config/current.activeEventId    -> 지금 참석 신청 화면에 표시할 행사 ID
+   - events/current                 -> 현재 진행 중인 단 하나의 행사 정보 (제목/일시/장소/안건)
+   - events/current/responses/{id}  -> 현재 행사의 참석 신청 내역
+   - events/current/materials/{id}  -> 현재 행사의 첨부 자료
+   - archivedEvents/{id}            -> "새 행사로 시작하기"로 초기화될 때 자동 보관되는 지난 행사 기록
+                                        (행사 정보 + 당시 참석자 명단 + 자료 목록 스냅샷)
    ============================================================ */
-function listenActiveEventId(onChange){
-  const ref = doc(db, "config", "current");
-  return onSnapshot(ref, (snap)=>{
-    setSyncBadge(true);
-    onChange(snap.exists() ? (snap.data().activeEventId || null) : null);
-  }, (err)=>{
-    console.error(err);
-    setSyncBadge(false);
-  });
-}
-
 function listenEventInfo(eventId, onData){
   const ref = doc(db, "events", eventId);
   return onSnapshot(ref, (snap)=>{
@@ -702,47 +708,48 @@ function renderPublicMaterials(rows){
     </a>`).join("");
 }
 
-/* ---------------- 공개 화면: 현재 활성 행사 구독 ---------------- */
-let activeEventId = null;
-let unsubActiveInfo = null;
-let unsubActiveResponses = null;
-let unsubActiveMaterials = null;
+/* ---------------- 공개 화면: 현재 행사(events/current) 구독 ---------------- */
+let hasActiveEvent = false;
 
-listenActiveEventId((id)=>{
-  activeEventId = id;
-  if(unsubActiveInfo) unsubActiveInfo();
-  if(unsubActiveResponses) unsubActiveResponses();
-  if(unsubActiveMaterials) unsubActiveMaterials();
+function listenCurrentEventDoc(onData){
+  const ref = doc(db, "events", CURRENT_EVENT_ID);
+  return onSnapshot(ref, (snap)=>{
+    setSyncBadge(true);
+    onData(snap.exists() ? snap.data() : null);
+  }, (err)=>{
+    console.error(err);
+    setSyncBadge(false);
+  });
+}
 
-  if(!id){
+listenCurrentEventDoc((data)=>{
+  hasActiveEvent = !!(data && data.title);
+
+  if(!hasActiveEvent){
     document.title = "행사 참석 신청";
     document.getElementById("eventTitleHeader").textContent = "행사 참석 신청";
     document.getElementById("infoDate").textContent = "관리자가 아직 행사를 등록하지 않았습니다";
     document.getElementById("infoLocation").textContent = "-";
     document.getElementById("infoAgenda").textContent = "-";
-    renderPublicStats([]);
-    renderPublicList([]);
-    renderPublicMaterials([]);
     submitBtn.disabled = true;
     return;
   }
 
   submitBtn.disabled = false;
-  unsubActiveInfo = listenEventInfo(id, (data)=>{
-    const title = data?.title || "행사 참석 신청";
-    document.title = title;
-    document.getElementById("eventTitleHeader").textContent = title;
-    document.getElementById("infoDate").textContent = data?.date || "-";
-    document.getElementById("infoLocation").textContent = data?.location || "-";
-    document.getElementById("infoAgenda").textContent = data?.agenda || "-";
-  });
-  unsubActiveResponses = listenEventResponses(id, (rows)=>{
-    renderPublicStats(rows);
-    renderPublicList(rows);
-  });
-  unsubActiveMaterials = listenMaterials(id, (rows)=>{
-    renderPublicMaterials(rows);
-  });
+  const title = data?.title || "행사 참석 신청";
+  document.title = title;
+  document.getElementById("eventTitleHeader").textContent = title;
+  document.getElementById("infoDate").textContent = data?.date || "-";
+  document.getElementById("infoLocation").textContent = data?.location || "-";
+  document.getElementById("infoAgenda").textContent = data?.agenda || "-";
+});
+
+listenEventResponses(CURRENT_EVENT_ID, (rows)=>{
+  renderPublicStats(rows);
+  renderPublicList(rows);
+});
+listenMaterials(CURRENT_EVENT_ID, (rows)=>{
+  renderPublicMaterials(rows);
 });
 
 function renderPublicStats(rows){
@@ -795,7 +802,7 @@ submitBtn.addEventListener("click", async ()=>{
     document.getElementById("fName").focus();
     return;
   }
-  if(!activeEventId){
+  if(!hasActiveEvent){
     showToast("현재 등록된 행사가 없습니다. 관리자에게 문의해주세요.");
     return;
   }
@@ -803,7 +810,7 @@ submitBtn.addEventListener("click", async ()=>{
   submitBtn.disabled = true;
   submitBtn.textContent = "제출 중...";
   try{
-    const writePromise = addDoc(collection(db, "events", activeEventId, "responses"), {
+    const writePromise = addDoc(collection(db, "events", CURRENT_EVENT_ID, "responses"), {
       name, role, attendance, meal, note,
       submittedAt: serverTimestamp()
     });
@@ -834,17 +841,18 @@ submitBtn.addEventListener("click", async ()=>{
 /* ============================================================
    관리자 모드
    ============================================================ */
-let adminEventId = null;
+const adminEventId = CURRENT_EVENT_ID; // 항상 events/current 하나만 다룸
 let unsubAdminInfo = null;
 let unsubAdminResponses = null;
 let unsubAdminMaterials = null;
-let unsubEventsList = null;
+let unsubArchivedEvents = null;
 let adminRowsCache = [];
 let adminMaterialsCache = [];
 let adminEventTitleCache = "";
 let adminEventInfoCache = null;
 let infoDirty = false;
-let eventsCache = [];
+let archivedEventsCache = [];
+let selectedArchiveId = null;
 
 document.getElementById("adminLoginBtn").addEventListener("click", tryAdminLogin);
 document.getElementById("adminPw").addEventListener("keydown", (e)=>{
@@ -870,63 +878,12 @@ document.getElementById("adminLogoutBtn").addEventListener("click", ()=>{
   if(unsubAdminInfo) unsubAdminInfo();
   if(unsubAdminResponses) unsubAdminResponses();
   if(unsubAdminMaterials) unsubAdminMaterials();
-  if(unsubEventsList) unsubEventsList();
+  if(unsubArchivedEvents) unsubArchivedEvents();
 });
 
-function listenEventsList(onData){
-  const ref = collection(db, "events");
-  const q = query(ref, orderBy("createdAt","desc"));
-  return onSnapshot(q, (snap)=>{
-    const rows = [];
-    snap.forEach(d=>rows.push({id:d.id, ...d.data()}));
-    onData(rows);
-  }, (err)=>console.error(err));
-}
-
 function initAdminPanel(){
-  if(unsubEventsList) unsubEventsList();
-  const select = document.getElementById("eventSelect");
-
-  unsubEventsList = listenEventsList((rows)=>{
-    eventsCache = rows;
-    const prevSelected = select.value;
-
-    if(rows.length === 0){
-      select.innerHTML = `<option value="">행사를 만들면 여기에 표시됩니다</option>`;
-      adminEventId = null;
-      updateActiveIndicator();
-      renderAdminStats([]);
-      renderAdminTable([]);
-      renderAdminMaterials([]);
-      document.getElementById("adminEventLabel").textContent = "";
-      document.getElementById("editTitle").value = "";
-      document.getElementById("editDate").value = "";
-      document.getElementById("editLocation").value = "";
-      document.getElementById("editAgenda").value = "";
-      return;
-    }
-
-    select.innerHTML = rows.map(r=>{
-      const label = `${r.title || "(제목 없음)"}${r.date ? " · " + r.date : ""}${r.id === activeEventId ? " (표시중)" : ""}`;
-      return `<option value="${r.id}">${escapeHtml(label)}</option>`;
-    }).join("");
-
-    // 선택 유지: 이전 선택값이 여전히 있으면 유지, 없으면 현재 활성 행사 또는 첫 항목
-    let toSelect = prevSelected && rows.some(r=>r.id === prevSelected) ? prevSelected
-      : (activeEventId && rows.some(r=>r.id === activeEventId) ? activeEventId : rows[0].id);
-
-    select.value = toSelect;
-    if(toSelect !== adminEventId){
-      subscribeAdminEvent(toSelect);
-    }else{
-      updateActiveIndicator();
-    }
-  });
-
-  select.addEventListener("change", ()=>{
-    if(!select.value) return;
-    subscribeAdminEvent(select.value);
-  });
+  subscribeAdminEvent();
+  subscribeArchivedEvents();
 
   ["editTitle","editDate","editLocation","editAgenda"].forEach(id=>{
     document.getElementById(id).addEventListener("input", ()=>{
@@ -936,37 +893,17 @@ function initAdminPanel(){
   });
 }
 
-function updateActiveIndicator(){
-  const el = document.getElementById("activeIndicator");
-  const setBtn = document.getElementById("setActiveBtn");
-  if(!adminEventId){
-    el.textContent = "";
-    setBtn.style.display = "none";
-    return;
-  }
-  if(adminEventId === activeEventId){
-    el.textContent = "✅ 현재 참석 신청 화면에 표시 중인 행사입니다.";
-    setBtn.style.display = "none";
-  }else{
-    el.textContent = "이 행사는 지금 참석 신청 화면에 표시되고 있지 않습니다.";
-    setBtn.style.display = "flex";
-  }
-}
-
-function subscribeAdminEvent(eventId){
+function subscribeAdminEvent(){
   if(unsubAdminInfo) unsubAdminInfo();
   if(unsubAdminResponses) unsubAdminResponses();
   if(unsubAdminMaterials) unsubAdminMaterials();
-  adminEventId = eventId;
   infoDirty = false;
   document.getElementById("saveBanner").classList.remove("show");
-  document.getElementById("eventSelect").value = eventId;
-  updateActiveIndicator();
 
-  unsubAdminInfo = listenEventInfo(eventId, (data)=>{
+  unsubAdminInfo = listenEventInfo(adminEventId, (data)=>{
     adminEventTitleCache = data?.title || "";
     adminEventInfoCache = data || null;
-    document.getElementById("adminEventLabel").textContent = adminEventTitleCache;
+    document.getElementById("adminEventLabel").textContent = adminEventTitleCache || "미등록";
     if(infoDirty) return; // 입력 중에는 덮어쓰지 않음
     document.getElementById("editTitle").value = data?.title || "";
     document.getElementById("editDate").value = data?.date || "";
@@ -974,17 +911,135 @@ function subscribeAdminEvent(eventId){
     document.getElementById("editAgenda").value = data?.agenda || "";
   });
 
-  unsubAdminResponses = listenEventResponses(eventId, (rows)=>{
+  unsubAdminResponses = listenEventResponses(adminEventId, (rows)=>{
     adminRowsCache = rows;
     renderAdminStats(rows);
     renderAdminTable(rows);
   });
 
-  unsubAdminMaterials = listenMaterials(eventId, (rows)=>{
+  unsubAdminMaterials = listenMaterials(adminEventId, (rows)=>{
     adminMaterialsCache = rows;
     renderAdminMaterials(rows);
   });
 }
+
+/* ---------------- 지난 행사 보관함 ---------------- */
+function listenArchivedEventsList(onData){
+  const ref = collection(db, "archivedEvents");
+  const q = query(ref, orderBy("archivedAt","desc"));
+  return onSnapshot(q, (snap)=>{
+    const rows = [];
+    snap.forEach(d=>rows.push({id:d.id, ...d.data()}));
+    onData(rows);
+  }, (err)=>console.error(err));
+}
+
+function subscribeArchivedEvents(){
+  if(unsubArchivedEvents) unsubArchivedEvents();
+  unsubArchivedEvents = listenArchivedEventsList((rows)=>{
+    archivedEventsCache = rows;
+    const select = document.getElementById("archiveSelect");
+
+    if(rows.length === 0){
+      select.innerHTML = `<option value="">보관된 지난 행사가 없습니다</option>`;
+      selectedArchiveId = null;
+      showArchiveDetail(null);
+      return;
+    }
+
+    select.innerHTML = rows.map(r=>{
+      const label = `${r.title || "(제목 없음)"}${r.date ? " · " + r.date : ""}`;
+      return `<option value="${r.id}">${escapeHtml(label)}</option>`;
+    }).join("");
+
+    const toSelect = selectedArchiveId && rows.some(r=>r.id === selectedArchiveId) ? selectedArchiveId : rows[0].id;
+    select.value = toSelect;
+    showArchiveDetail(toSelect);
+  });
+}
+
+document.getElementById("archiveSelect").addEventListener("change", (e)=>{
+  showArchiveDetail(e.target.value || null);
+});
+
+function showArchiveDetail(id){
+  selectedArchiveId = id;
+  const detail = document.getElementById("archiveDetail");
+  const record = id ? archivedEventsCache.find(r=>r.id === id) : null;
+
+  if(!record){
+    detail.style.display = "none";
+    return;
+  }
+  detail.style.display = "";
+
+  const rows = record.responses || [];
+  const attend = rows.filter(r=>r.attendance === "참석").length;
+  const meal = rows.filter(r=>r.attendance === "참석" && r.meal === "참석").length;
+  const absent = rows.filter(r=>r.attendance !== "참석").length;
+  document.getElementById("archiveStatAttend").textContent = attend;
+  document.getElementById("archiveStatMeal").textContent = meal;
+  document.getElementById("archiveStatAbsent").textContent = absent;
+
+  const materials = record.materials || [];
+  const matList = document.getElementById("archiveMaterialsList");
+  if(materials.length === 0){
+    matList.innerHTML = `<div class="empty" style="padding:10px 0;">보관된 첨부 자료가 없습니다</div>`;
+  }else{
+    matList.innerHTML = materials.map(m=>`
+      <div class="material-item admin">
+        <span class="mat-link" style="cursor:default;">
+          <span class="mat-icon">📄</span>
+          <span class="mat-name">${escapeHtml(m.fileName || "파일")}</span>
+          <span class="mat-size">${fmtFileSize(m.size)}</span>
+        </span>
+      </div>`).join("");
+  }
+}
+
+document.getElementById("downloadArchiveExcelBtn").addEventListener("click", async ()=>{
+  const record = selectedArchiveId ? archivedEventsCache.find(r=>r.id === selectedArchiveId) : null;
+  if(!record || !(record.responses && record.responses.length)){
+    showToast("다운로드할 데이터가 없습니다");
+    return;
+  }
+  const btn = document.getElementById("downloadArchiveExcelBtn");
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "생성 중...";
+  try{
+    const ExcelJSLib = window.ExcelJS;
+    if(!ExcelJSLib){
+      throw new Error("엑셀 라이브러리를 불러오지 못했습니다 (인터넷 연결을 확인해주세요)");
+    }
+    const title = record.title || "행사";
+    const wb = new ExcelJSLib.Workbook();
+    wb.creator = ORG_NAME;
+    wb.created = new Date();
+
+    buildAttendanceSheet(wb, record.responses, title);
+    buildSignatureSheet(wb, record.responses, title, record);
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const safeTitle = title.replace(/[\\/:*?"<>|]+/g, "_");
+    const now = new Date();
+    const stamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}`;
+    a.href = url;
+    a.download = `${safeTitle}_참석명단_${stamp}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("엑셀 파일이 다운로드되었습니다 ✅");
+  }catch(e){
+    console.error(e);
+    showToast("엑셀 생성 중 오류가 발생했습니다");
+  }finally{
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+});
 
 function renderAdminMaterials(rows){
   const list = document.getElementById("adminMaterialsList");
@@ -1118,7 +1173,12 @@ document.getElementById("adminTableBody").addEventListener("click", async (e)=>{
   }
 });
 
-/* 새 행사 만들기 */
+/* 새 행사로 시작하기
+   - 현재 진행 중이던 행사(정보 + 참석자 명단 + 자료 목록)를 archivedEvents 컬렉션에
+     행사명/날짜와 함께 스냅샷으로 보관한 뒤
+   - 첨부 자료 원본은 Storage에서 삭제하고
+   - 참석자 명단 / 자료 문서를 모두 지우고
+   - events/current 문서를 새 행사 정보로 완전히 덮어써 초기화합니다. */
 document.getElementById("createEventBtn").addEventListener("click", async ()=>{
   const title = document.getElementById("newTitle").value.trim();
   const date = document.getElementById("newDate").value.trim();
@@ -1132,38 +1192,89 @@ document.getElementById("createEventBtn").addEventListener("click", async ()=>{
     return;
   }
 
+  const hasExisting = !!(adminEventInfoCache && adminEventInfoCache.title);
+  if(hasExisting){
+    const confirmMsg = `"${adminEventInfoCache.title}" 행사를 종료하고 새 행사로 초기화할까요?\n\n` +
+      `현재 참석자 명단(${adminRowsCache.length}건)과 자료(${adminMaterialsCache.length}개)는 ` +
+      `'지난 행사 보관함'에 자동 저장된 뒤 초기화됩니다.`;
+    if(!window.confirm(confirmMsg)) return;
+  }
+
   btn.disabled = true;
-  btn.textContent = "생성 중...";
+  btn.textContent = "초기화 중...";
   try{
-    const ref = await addDoc(collection(db, "events"), {
+    // 1) 기존 행사가 있으면 보관함에 스냅샷 저장 후 초기화
+    const currentSnap = await getDoc(doc(db, "events", CURRENT_EVENT_ID));
+    if(currentSnap.exists() && currentSnap.data().title){
+      const info = currentSnap.data();
+      const [responsesSnap, materialsSnap] = await Promise.all([
+        getDocs(collection(db, "events", CURRENT_EVENT_ID, "responses")),
+        getDocs(collection(db, "events", CURRENT_EVENT_ID, "materials"))
+      ]);
+
+      const responses = responsesSnap.docs.map(d=>d.data());
+      const materialsRaw = materialsSnap.docs.map(d=>d.data());
+      const materialsArchive = materialsRaw.map(m=>({
+        fileName: m.fileName || "",
+        size: m.size || 0,
+        contentType: m.contentType || "",
+        uploadedAt: m.uploadedAt || null
+      }));
+
+      await addDoc(collection(db, "archivedEvents"), {
+        title: info.title || "",
+        date: info.date || "",
+        location: info.location || "",
+        agenda: info.agenda || "",
+        archivedAt: serverTimestamp(),
+        responseCount: responses.length,
+        responses,
+        materials: materialsArchive
+      });
+
+      // 2) Storage에 업로드된 자료 원본 삭제 (베스트 에포트: 실패해도 초기화는 계속 진행)
+      await Promise.all(materialsRaw.map(async (m)=>{
+        if(!m.storagePath) return;
+        try{
+          await deleteObject(storageRef(storage, m.storagePath));
+        }catch(storageErr){
+          console.warn("보관 처리 중 자료 원본 삭제 실패(이미 삭제됐거나 존재하지 않을 수 있음):", storageErr);
+        }
+      }));
+
+      // 3) 기존 참석자/자료 문서 삭제
+      await Promise.all([
+        ...responsesSnap.docs.map(d=>deleteDoc(d.ref)),
+        ...materialsSnap.docs.map(d=>deleteDoc(d.ref))
+      ]);
+    }
+
+    // 4) 새 행사 정보로 완전히 덮어써서 초기화 (merge 아님 — 이전 필드 완전 리셋)
+    await setDoc(doc(db, "events", CURRENT_EVENT_ID), {
       title, date, location, agenda,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
-    await setDoc(doc(db, "config", "current"), { activeEventId: ref.id });
 
     document.getElementById("newTitle").value = "";
     document.getElementById("newDate").value = "";
     document.getElementById("newLocation").value = "";
     document.getElementById("newAgenda").value = "";
 
-    subscribeAdminEvent(ref.id);
-    showToast("새 행사가 시작되었습니다 ✅ 참석 신청 화면에 바로 반영됩니다");
+    showToast(hasExisting
+      ? "새 행사로 초기화되었습니다 ✅ 이전 데이터는 보관함에 저장되었습니다"
+      : "새 행사가 시작되었습니다 ✅ 참석 신청 화면에 바로 반영됩니다");
   }catch(e){
     console.error(e);
-    showToast("행사 생성 실패. Firebase 설정 및 보안 규칙을 확인해주세요.");
+    showToast("행사 초기화 실패. Firebase 설정 및 보안 규칙을 확인해주세요.");
   }finally{
     btn.disabled = false;
     btn.textContent = "🚀 새 행사로 시작하기";
   }
 });
 
-/* 선택한 행사 정보 저장 */
+/* 현재 행사 정보 저장 */
 document.getElementById("saveInfoBtn").addEventListener("click", async ()=>{
-  if(!adminEventId){
-    showToast("먼저 행사를 선택하거나 새로 만들어주세요");
-    return;
-  }
   const title = document.getElementById("editTitle").value.trim();
   const date = document.getElementById("editDate").value.trim();
   const location = document.getElementById("editLocation").value.trim();
@@ -1186,18 +1297,6 @@ document.getElementById("saveInfoBtn").addEventListener("click", async ()=>{
   }catch(e){
     console.error(e);
     showToast("저장 실패. Firebase 설정 및 보안 규칙을 확인해주세요.");
-  }
-});
-
-/* 선택한 행사를 참석 신청 화면에 표시 */
-document.getElementById("setActiveBtn").addEventListener("click", async ()=>{
-  if(!adminEventId) return;
-  try{
-    await setDoc(doc(db, "config", "current"), { activeEventId: adminEventId });
-    showToast("참석 신청 화면이 이 행사로 전환되었습니다 ✅");
-  }catch(e){
-    console.error(e);
-    showToast("전환 실패. Firebase 설정 및 보안 규칙을 확인해주세요.");
   }
 });
 
