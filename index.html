@@ -400,6 +400,9 @@
         <div class="row-actions">
           <button class="btn-secondary btn-primary-outline" id="downloadExcelBtn">⬇️ 참석명단 엑셀(xlsx) 다운로드</button>
         </div>
+        <div class="row-actions">
+          <button class="btn-secondary" id="clearRosterBtn" style="border-color:#e0b4b4;color:#b23b3b;">🧹 명단만 초기화 (행사 정보는 유지, 기존 명단은 보관함에 저장)</button>
+        </div>
       </div>
 
       <div class="card">
@@ -480,7 +483,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, collection, addDoc, deleteDoc,
-  onSnapshot, serverTimestamp, query, orderBy, increment
+  onSnapshot, serverTimestamp, query, orderBy, increment, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
@@ -1198,6 +1201,7 @@ function renderAdminStats(rows){
 let lastSavedCounts = null;
 async function recomputeAndSaveCounts(rows){
   if(!adminEventId) return;
+  if(resetInProgress) return; // 초기화 도중에는 옛 명단 기준 카운터를 다시 쓰지 않음
   const attendCount = rows.filter(r=>r.attendance === "참석").length;
   const mealCount = rows.filter(r=>r.attendance === "참석" && r.meal === "참석").length;
   const absentCount = rows.filter(r=>r.attendance !== "참석").length;
@@ -1314,12 +1318,111 @@ document.getElementById("adminTableBody").addEventListener("click", async (e)=>{
   }
 });
 
-/* 새 행사로 시작하기
-   - 현재 진행 중이던 행사(정보 + 참석자 명단 + 자료 목록)를 archivedEvents 컬렉션에
-     행사명/날짜와 함께 스냅샷으로 보관한 뒤
-   - 첨부 자료 원본은 Storage에서 삭제하고
-   - 참석자 명단 / 자료 문서를 모두 지우고
-   - events/current 문서를 새 행사 정보로 완전히 덮어써 초기화합니다. */
+/* 새 행사로 시작하기 / 명단만 초기화 — 공통 처리
+   1) 현재 행사(정보 + 참석자 명단 + 자료 목록)를 archivedEvents 에 스냅샷으로 보관
+   2) 첨부 자료 원본을 Storage 에서 삭제 (실패해도 계속)
+   3) 참석자 명단 / 자료 문서를 일괄(batch) 삭제하고, 정말 비었는지 다시 확인
+   4) events/current 문서를 새 행사 정보로 완전히 덮어써 초기화 (카운터 0)
+   단계별로 실패 지점을 알려줘서 "초기화가 안 됐는데 이유를 모르는" 상황을 막습니다. */
+let resetInProgress = false;
+
+async function deleteDocsInBatches(docs){
+  for(let i = 0; i < docs.length; i += 400){
+    const batch = writeBatch(db);
+    docs.slice(i, i + 400).forEach(d=>batch.delete(d.ref));
+    await batch.commit();
+  }
+}
+
+async function archiveAndResetEvent(newInfo){
+  let stage = "기존 행사 불러오기";
+  resetInProgress = true;
+  try{
+    const currentSnap = await getDoc(doc(db, "events", CURRENT_EVENT_ID));
+    const info = currentSnap.exists() ? currentSnap.data() : {};
+    const [responsesSnap, materialsSnap] = await Promise.all([
+      getDocs(collection(db, "events", CURRENT_EVENT_ID, "responses")),
+      getDocs(collection(db, "events", CURRENT_EVENT_ID, "materials"))
+    ]);
+
+    // 행사 정보가 있거나, 명단·자료가 하나라도 남아 있으면 보관 후 삭제
+    if(info.title || !responsesSnap.empty || !materialsSnap.empty){
+      stage = "지난 행사 보관함 저장";
+      const responses = responsesSnap.docs.map(d=>d.data());
+      const materialsRaw = materialsSnap.docs.map(d=>d.data());
+      await addDoc(collection(db, "archivedEvents"), {
+        title: info.title || "(제목 없음)",
+        date: info.date || "",
+        location: info.location || "",
+        agenda: info.agenda || "",
+        archivedAt: serverTimestamp(),
+        responseCount: responses.length,
+        responses,
+        materials: materialsRaw.map(m=>({
+          fileName: m.fileName || "",
+          size: m.size || 0,
+          contentType: m.contentType || "",
+          uploadedAt: m.uploadedAt || null
+        }))
+      });
+
+      stage = "첨부 자료 원본 삭제";
+      await Promise.all(materialsRaw.map(async (m)=>{
+        if(!m.storagePath) return;
+        try{
+          await deleteObject(storageRef(storage, m.storagePath));
+        }catch(storageErr){
+          console.warn("자료 원본 삭제 실패(이미 삭제됐을 수 있음):", storageErr);
+        }
+      }));
+
+      stage = "기존 참석자 명단 삭제";
+      await deleteDocsInBatches(responsesSnap.docs);
+      stage = "기존 자료 목록 삭제";
+      await deleteDocsInBatches(materialsSnap.docs);
+
+      // 정말 비었는지 서버에서 다시 확인 (그 사이 누가 제출했으면 한 번 더 삭제)
+      stage = "명단 초기화 확인";
+      const leftover = await getDocs(collection(db, "events", CURRENT_EVENT_ID, "responses"));
+      if(!leftover.empty) await deleteDocsInBatches(leftover.docs);
+    }
+
+    stage = "새 행사 정보 저장";
+    await setDoc(doc(db, "events", CURRENT_EVENT_ID), {
+      title: newInfo.title,
+      date: newInfo.date || "",
+      location: newInfo.location || "",
+      agenda: newInfo.agenda || "",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      attendCount: 0,
+      mealCount: 0,
+      absentCount: 0
+    });
+    lastSavedCounts = "0/0/0";
+    infoDirty = false;
+    document.getElementById("saveBanner").classList.remove("show");
+  }catch(e){
+    console.error(`[행사 초기화] '${stage}' 단계 실패:`, e);
+    const code = e && e.code ? ` (${e.code})` : "";
+    const err = new Error(`'${stage}' 단계에서 실패했습니다${code}`);
+    err.stage = stage;
+    throw err;
+  }finally{
+    resetInProgress = false;
+  }
+}
+
+function confirmResetMessage(actionLabel){
+  return `"${(adminEventInfoCache && adminEventInfoCache.title) || "현재 행사"}" 의 ${actionLabel}\n\n` +
+    `현재 참석자 명단(${adminRowsCache.length}건)과 자료(${adminMaterialsCache.length}개)는 ` +
+    `'지난 행사 보관함'에 자동 저장된 뒤 초기화됩니다.`;
+}
+
+function resetErrorToast(e){
+  showToast(`초기화 실패 — ${e.message}. 관리자 로그인 상태를 확인하고 다시 시도해주세요.`);
+}
+
 document.getElementById("createEventBtn").addEventListener("click", async ()=>{
   const title = document.getElementById("newTitle").value.trim();
   const date = document.getElementById("newDate").value.trim();
@@ -1333,88 +1436,54 @@ document.getElementById("createEventBtn").addEventListener("click", async ()=>{
     return;
   }
 
-  const hasExisting = !!(adminEventInfoCache && adminEventInfoCache.title);
-  if(hasExisting){
-    const confirmMsg = `"${adminEventInfoCache.title}" 행사를 종료하고 새 행사로 초기화할까요?\n\n` +
-      `현재 참석자 명단(${adminRowsCache.length}건)과 자료(${adminMaterialsCache.length}개)는 ` +
-      `'지난 행사 보관함'에 자동 저장된 뒤 초기화됩니다.`;
-    if(!window.confirm(confirmMsg)) return;
-  }
+  const hasExisting = !!(adminEventInfoCache && adminEventInfoCache.title) || adminRowsCache.length > 0;
+  if(hasExisting && !window.confirm(confirmResetMessage("행사를 종료하고 새 행사로 초기화할까요?"))) return;
 
   btn.disabled = true;
   btn.textContent = "초기화 중...";
   try{
-    // 1) 기존 행사가 있으면 보관함에 스냅샷 저장 후 초기화
-    const currentSnap = await getDoc(doc(db, "events", CURRENT_EVENT_ID));
-    if(currentSnap.exists() && currentSnap.data().title){
-      const info = currentSnap.data();
-      const [responsesSnap, materialsSnap] = await Promise.all([
-        getDocs(collection(db, "events", CURRENT_EVENT_ID, "responses")),
-        getDocs(collection(db, "events", CURRENT_EVENT_ID, "materials"))
-      ]);
-
-      const responses = responsesSnap.docs.map(d=>d.data());
-      const materialsRaw = materialsSnap.docs.map(d=>d.data());
-      const materialsArchive = materialsRaw.map(m=>({
-        fileName: m.fileName || "",
-        size: m.size || 0,
-        contentType: m.contentType || "",
-        uploadedAt: m.uploadedAt || null
-      }));
-
-      await addDoc(collection(db, "archivedEvents"), {
-        title: info.title || "",
-        date: info.date || "",
-        location: info.location || "",
-        agenda: info.agenda || "",
-        archivedAt: serverTimestamp(),
-        responseCount: responses.length,
-        responses,
-        materials: materialsArchive
-      });
-
-      // 2) Storage에 업로드된 자료 원본 삭제 (베스트 에포트: 실패해도 초기화는 계속 진행)
-      await Promise.all(materialsRaw.map(async (m)=>{
-        if(!m.storagePath) return;
-        try{
-          await deleteObject(storageRef(storage, m.storagePath));
-        }catch(storageErr){
-          console.warn("보관 처리 중 자료 원본 삭제 실패(이미 삭제됐거나 존재하지 않을 수 있음):", storageErr);
-        }
-      }));
-
-      // 3) 기존 참석자/자료 문서 삭제
-      await Promise.all([
-        ...responsesSnap.docs.map(d=>deleteDoc(d.ref)),
-        ...materialsSnap.docs.map(d=>deleteDoc(d.ref))
-      ]);
-    }
-
-    // 4) 새 행사 정보로 완전히 덮어써서 초기화 (merge 아님 — 이전 필드 완전 리셋, 카운터도 0으로)
-    await setDoc(doc(db, "events", CURRENT_EVENT_ID), {
-      title, date, location, agenda,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      attendCount: 0,
-      mealCount: 0,
-      absentCount: 0
-    });
-    lastSavedCounts = "0/0/0";
-
+    await archiveAndResetEvent({ title, date, location, agenda });
     document.getElementById("newTitle").value = "";
     document.getElementById("newDate").value = "";
     document.getElementById("newLocation").value = "";
     document.getElementById("newAgenda").value = "";
-
     showToast(hasExisting
-      ? "새 행사로 초기화되었습니다 ✅ 이전 데이터는 보관함에 저장되었습니다"
+      ? "새 행사로 초기화되었습니다 ✅ 이전 명단은 보관함에 저장되었습니다"
       : "새 행사가 시작되었습니다 ✅ 참석 신청 화면에 바로 반영됩니다");
   }catch(e){
-    console.error(e);
-    showToast("행사 초기화 중 오류가 발생했습니다. '지난 행사 보관함'과 참석자 명단을 확인한 뒤 다시 시도해주세요. 계속 실패하면 페이지를 새로고침해보세요.");
+    resetErrorToast(e);
   }finally{
     btn.disabled = false;
     btn.textContent = "🚀 새 행사로 시작하기";
+  }
+});
+
+/* 명단만 초기화 — 현재 행사 정보(제목/일시/장소/안건)는 그대로 두고
+   참석자 명단·자료만 보관함으로 옮긴 뒤 비웁니다. */
+document.getElementById("clearRosterBtn").addEventListener("click", async ()=>{
+  if(!adminEventInfoCache || !adminEventInfoCache.title){
+    showToast("현재 등록된 행사가 없습니다");
+    return;
+  }
+  if(adminRowsCache.length === 0 && adminMaterialsCache.length === 0){
+    showToast("이미 비어 있는 명단입니다");
+    return;
+  }
+  if(!window.confirm(confirmResetMessage("참석자 명단을 초기화할까요?\n(행사 제목·일시·장소·안건은 그대로 유지됩니다)"))) return;
+
+  const btn = document.getElementById("clearRosterBtn");
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "초기화 중...";
+  try{
+    const c = adminEventInfoCache;
+    await archiveAndResetEvent({ title: c.title, date: c.date, location: c.location, agenda: c.agenda });
+    showToast("참석자 명단이 초기화되었습니다 ✅ 이전 명단은 보관함에 저장되었습니다");
+  }catch(e){
+    resetErrorToast(e);
+  }finally{
+    btn.disabled = false;
+    btn.textContent = label;
   }
 });
 
@@ -1429,6 +1498,31 @@ document.getElementById("saveInfoBtn").addEventListener("click", async ()=>{
     showToast("행사 제목을 입력해주세요");
     document.getElementById("editTitle").focus();
     return;
+  }
+
+  // 제목을 바꿔 다른 행사로 쓰려는데 기존 명단이 남아 있으면, '정보 수정'만으로는
+  // 명단이 지워지지 않으므로 새 행사로 초기화할지 먼저 물어봅니다.
+  const prevTitle = (adminEventInfoCache && adminEventInfoCache.title) || "";
+  if(prevTitle && title !== prevTitle && adminRowsCache.length > 0){
+    const goReset = window.confirm(
+      `행사 제목이 바뀌었습니다.\n"${prevTitle}" → "${title}"\n\n` +
+      `'행사 정보 저장'은 정보만 바꾸고 기존 참석자 명단(${adminRowsCache.length}건)은 그대로 남습니다.\n\n` +
+      `[확인] 기존 명단을 보관함에 저장하고 새 행사로 시작 (명단 초기화)\n` +
+      `[취소] 명단은 그대로 두고 정보만 저장`
+    );
+    if(goReset){
+      const btn = document.getElementById("saveInfoBtn");
+      btn.disabled = true;
+      try{
+        await archiveAndResetEvent({ title, date, location, agenda });
+        showToast("새 행사로 초기화되었습니다 ✅ 이전 명단은 보관함에 저장되었습니다");
+      }catch(e){
+        resetErrorToast(e);
+      }finally{
+        btn.disabled = false;
+      }
+      return;
+    }
   }
 
   try{
